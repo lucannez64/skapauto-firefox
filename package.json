@@ -1,0 +1,23 @@
+{
+  "name": "skapauto-firefox",
+  "version": "1.0.0",
+  "description": "Extension Firefox pour récupérer les mots de passe Skap",
+  "main": "background.js",
+  "type": "module",
+  "scripts": {
+    "build": "bun build ./src/background.ts --outdir ./dist --target browser --format esm && bun build ./src/content.ts --outdir ./dist --target browser --format esm && bun build ./src/popup.ts --outdir ./dist --target browser --format esm && cp src/popup.html dist/ && mkdir -p dist/icons && cp manifest.json dist/"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.3.3",
+    "@noble/ciphers": "^1.2.1",
+    "@noble/hashes": "^1.7.1",
+    "@noble/post-quantum": "^0.4.0",
+    "otpauth": "^9.3.6",
+    "uuid-tool": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/firefox-webext-browser": "^120.0.0",
+    "bun-types": "latest",
+    "typescript": "^5.0.0"
+  }
+}
