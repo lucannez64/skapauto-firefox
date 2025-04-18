@@ -404,7 +404,7 @@ function detectAutofillFields(): AutofillField[] {
   
   // Regular expressions for field detection based on attributes and ID/name patterns
   const patterns = {
-    name: /^(?:pseudo|name|full[_-]?name|first[_-]?name|last[_-]?name|fname|lname|given[_-]?name|family[_-]?name|current-email|j_username|user_name|user|user-name|login|vb_login_username|user name|user id|user-id|userid|id|form_loginname|wpname|mail|loginid|login id|login_name|openid_identifier|authentication_email|openid|auth_email|auth_id|authentication_identifier|authentication_id|customer_number|customernumber|onlineid|identifier|ww_x_util|loginfmt)$/i,
+    name: /^(?:name|full[_-]?name|first[_-]?name|last[_-]?name|fname|lname|given[_-]?name|family[_-]?name|current-email|j_username|user_name|user|user-name|login|vb_login_username|user name|user id|user-id|userid|id|form_loginname|wpname|mail|loginid|login id|login_name|openid_identifier|authentication_email|openid|auth_email|auth_id|authentication_identifier|authentication_id|customer_number|customernumber|onlineid|identifier|ww_x_util|loginfmt|username|log(in)?id|account|account[-_]?name|email[-_]?address)$/i,
     email: /^(?:e[_-]?mail|email[_-]?address|mail|e.?mail|courriel|correo.*electr(o|ó)nico|メールアドレス|Электронной.?Почты|邮件|邮箱|電郵地址|ഇ-മെയില്‍|ഇലക്ട്രോണിക്.?മെയിൽ|ایمیل|پست.*الکترونیک|ईमेल|इलॅक्ट्रॉनिक.?मेल|(\\b|_)eposta(\\b|_)|(?:いめーる|電子.?郵便|[Ee]-?mail)(.?住所)?|email_address|email-address|emailaddress|user_email|user-email|login_email|login-email|authentication_email|auth_email|form_email|wpmail|mail_address|mail-address|mailaddress|address|e_mail|e_mail_address|emailid|email_id|email-id)$/i,
     password: /^(?:password|pass|pwd|current[_-]?password|new[_-]?password|j_password|user_password|user-password|login_password|login-password|passwort|contraseña|senha|mot de passe|auth_pass|authentication_password|web_password|wppassword|userpassword|user-pass|form_pw|loginpassword|session_password|sessionpassword|ap_password|password1|password-1|pass-word|passw|passwrd|upassword|user_pass)$/i,
     otp: /^(?:otp|one[_-]?time[_-]?code|verification[_-]?code|auth[_-]?code|security[_-]?code|2fa|one-time-password|one_time_password|verification-code|verification_code|verificationcode|security-code|security_code|securitycode|auth-code|auth_code|authcode|code|code-input|code_input|codeinput|pin|pin-code|pin_code|pincode|token|token-code|token_code|tokencode|mfa-code|mfa_code|mfacode|2fa-code|2fa_code|2facode|two-factor-code|two_factor_code|twofactorcode|totp|totp-code|totp_code|totpcode)$/i
@@ -412,16 +412,23 @@ function detectAutofillFields(): AutofillField[] {
 
   // Find all input elements
   const inputElements = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]), textarea'
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="datetime-local"]):not([type="month"]):not([type="time"]):not([type="week"]), textarea'
   );
   
   // Process each input element
   inputElements.forEach(element => {
+    // Skip invisible elements
+    if (!isVisibleElement(element as HTMLElement)) {
+      return;
+    }
+
     // Get element attributes
     const type = element.getAttribute("type")?.toLowerCase() || "";
     const id = element.id.toLowerCase();
     const name = element.name.toLowerCase();
     const autocomplete = element.getAttribute("autocomplete")?.toLowerCase() || "";
+    const ariaLabel = element.getAttribute("aria-label")?.toLowerCase() || "";
+    const className = element.className.toLowerCase();
     
     // Determine field type based on attributes
     let fieldType: AutofillField["type"] | null = null;
@@ -439,7 +446,7 @@ function detectAutofillFields(): AutofillField[] {
     
     // Check by autocomplete attribute
     if (!fieldType) {
-      if (autocomplete.includes("name") || autocomplete === "name") {
+      if (autocomplete.includes("name") || autocomplete === "name" || autocomplete === "username") {
         fieldType = "name";
       } else if (autocomplete === "email") {
         fieldType = "email";
@@ -463,13 +470,41 @@ function detectAutofillFields(): AutofillField[] {
       }
     }
     
+    // Check by aria-label
+    if (!fieldType && ariaLabel) {
+      if (patterns.name.test(ariaLabel) || /username|user name|identifier|login|account/i.test(ariaLabel)) {
+        fieldType = "name";
+      } else if (patterns.email.test(ariaLabel)) {
+        fieldType = "email";
+      } else if (patterns.password.test(ariaLabel)) {
+        fieldType = "password";
+      } else if (patterns.otp.test(ariaLabel)) {
+        fieldType = "otp";
+      }
+    }
+    
+    // Check by class name for common patterns
+    if (!fieldType && className) {
+      if (/username|user-name|userid|login|account/i.test(className)) {
+        fieldType = "name";
+      } else if (/email/i.test(className)) {
+        fieldType = "email";
+      } else if (/password|pwd|pass/i.test(className)) {
+        fieldType = "password";
+      } else if (/otp|code|token|2fa|mfa/i.test(className)) {
+        fieldType = "otp";
+      }
+    }
+    
     // Check by placeholder or label text
     if (!fieldType) {
       const placeholder = element.placeholder.toLowerCase();
       const labelElement = document.querySelector(`label[for="${element.id}"]`);
       const labelText = labelElement ? labelElement.textContent?.toLowerCase() || "" : "";
       
-      if (patterns.name.test(placeholder) || patterns.name.test(labelText)) {
+      if (patterns.name.test(placeholder) || patterns.name.test(labelText) || 
+          /username|user name|identifier|login|account/i.test(placeholder) || 
+          /username|user name|identifier|login|account/i.test(labelText)) {
         fieldType = "name";
       } else if (patterns.email.test(placeholder) || patterns.email.test(labelText)) {
         fieldType = "email";
@@ -480,12 +515,48 @@ function detectAutofillFields(): AutofillField[] {
       }
     }
     
-    // Special case for OTP: inputs with maxlength of 1 or 6 and numeric pattern
+    // Special case for OTP: inputs with maxlength of 1-8 and numeric pattern or inputmode
     if (!fieldType && 
         element instanceof HTMLInputElement && 
-        (element.maxLength === 1 || element.maxLength === 6) && 
-        element.pattern === "[0-9]*") {
+        ((element.maxLength >= 1 && element.maxLength <= 8) || 
+         element.getAttribute("inputmode") === "numeric") &&
+        (element.pattern === "[0-9]*" || element.getAttribute("inputmode") === "numeric")) {
       fieldType = "otp";
+    }
+    
+    // Check for nearby labels that might not be linked by id
+    if (!fieldType) {
+      // Get all labels that are nearby (same parent or grandparent)
+      const parent = element.parentElement;
+      const grandparent = parent?.parentElement;
+      const nearbyLabels: HTMLLabelElement[] = [];
+      
+      if (parent) {
+        nearbyLabels.push(...Array.from(parent.querySelectorAll('label')));
+      }
+      
+      if (grandparent) {
+        nearbyLabels.push(...Array.from(grandparent.querySelectorAll('label')));
+      }
+      
+      // Check if any labels match our patterns
+      for (const label of nearbyLabels) {
+        const labelText = label.textContent?.toLowerCase() || "";
+        
+        if (patterns.name.test(labelText) || /username|user name|identifier|login|account/i.test(labelText)) {
+          fieldType = "name";
+          break;
+        } else if (patterns.email.test(labelText)) {
+          fieldType = "email";
+          break;
+        } else if (patterns.password.test(labelText)) {
+          fieldType = "password";
+          break;
+        } else if (patterns.otp.test(labelText)) {
+          fieldType = "otp";
+          break;
+        }
+      }
     }
     
     // Add the field if a type was determined
@@ -516,13 +587,20 @@ function setupMutationObserver(): void {
           // Vérifier si le nœud est un élément HTML
           if (node instanceof HTMLElement) {
             // Vérifier si l'élément contient des champs de formulaire
-            const inputs = node.querySelectorAll('input');
+            const inputs = node.querySelectorAll('input, textarea');
             if (inputs.length > 0) {
               newInputsDetected = true;
               break;
             }
           }
         }
+      }
+      // Vérifier également les modifications d'attributs qui pourraient transformer un champ
+      else if (mutation.type === 'attributes' && 
+              mutation.target instanceof HTMLElement &&
+              (mutation.target.tagName === 'INPUT' || mutation.target.tagName === 'TEXTAREA')) {
+        newInputsDetected = true;
+        break;
       }
       
       if (newInputsDetected) break;
@@ -532,13 +610,15 @@ function setupMutationObserver(): void {
     if (newInputsDetected) {
       console.log('Nouveaux champs détectés, vérification...');
       setTimeout(checkForNewLoginForms, 1000); // Attendre que le DOM soit stable
-   }
+    }
   });
   
   // Observer les modifications du document
   observer.observe(document.body, {
     childList: true,
-    subtree: true
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['type', 'id', 'name', 'autocomplete', 'placeholder', 'class']
   });
   
   console.log('Observateur de mutations configuré');
@@ -1042,67 +1122,116 @@ function fillPasswordForm(username: string, password: string): void {
   // Identifier les champs
   const fields = detectAutofillFields();
   console.log(fields);
+  
   // Remplir le champ de nom d'utilisateur
+  let usernameField: HTMLInputElement | null = null;
+  
   if (fields.some(f => f.type === "name")) {
-    const usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
+    usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
+  } else if (fields.some(f => f.type === "email")) {
+    // Si pas de champ username mais un champ email, utiliser celui-ci
+    usernameField = fields.find(f => f.type === "email")?.element as HTMLInputElement;
+  } else {
+    // Méthode de secours: rechercher par type et attributs
+    const potentialUsernameFields = Array.from(document.querySelectorAll<HTMLInputElement>(
+      'input[type="text"], input[type="email"], input:not([type]), input[name*="user"], input[name*="email"], input[id*="user"], input[id*="email"], input[class*="user"], input[class*="email"]'
+    ));
+    
+    // Filtrer les champs visibles
+    const visibleFields = potentialUsernameFields.filter(field => isVisibleElement(field));
+    
+    if (visibleFields.length > 0) {
+      // Préférer les champs qui sont directement dans un formulaire
+      const formFields = visibleFields.filter(field => field.closest('form'));
+      usernameField = formFields.length > 0 ? formFields[0] : visibleFields[0];
+    }
+  }
+  
+  // Remplir le champ de nom d'utilisateur
+  if (usernameField) {
+    // Essayer de simuler une saisie utilisateur plus authentique
+    usernameField.focus();
     usernameField.value = username;
     usernameField.dispatchEvent(new Event('input', { bubbles: true }));
     usernameField.dispatchEvent(new Event('change', { bubbles: true }));
-  } else if (fields.some(f => f.type === "email")) {
-    // Si pas de champ username mais un champ email, utiliser celui-ci
-    const emailField = fields.find(f => f.type === "email")?.element as HTMLInputElement;
-    emailField.value = username;
-    emailField.dispatchEvent(new Event('input', { bubbles: true }));
-    emailField.dispatchEvent(new Event('change', { bubbles: true }));
+    usernameField.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    usernameField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    usernameField.blur();
+  }
+  
+  // Remplir le champ de mot de passe
+  let passwordField: HTMLInputElement | null = null;
+  
+  if (fields.some(f => f.type === "password")) {
+    passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
   } else {
-    // Méthode de secours: rechercher par type et attributs
-    const usernameFields = document.querySelectorAll('input[type="text"], input[type="email"], input[name*="user"], input[name*="email"], input[id*="user"], input[id*="email"]');
-    if (usernameFields.length > 0) {
-      const usernameField = usernameFields[0] as HTMLInputElement;
-      usernameField.value = username;
-      usernameField.dispatchEvent(new Event('input', { bubbles: true }));
-      usernameField.dispatchEvent(new Event('change', { bubbles: true }));
+    // Méthode de secours: rechercher par type
+    const passwordFields = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="password"]'));
+    
+    // Filtrer les champs visibles
+    const visibleFields = passwordFields.filter(field => isVisibleElement(field));
+    
+    if (visibleFields.length > 0) {
+      passwordField = visibleFields[0];
     }
   }
   
   // Remplir le champ de mot de passe
-  if (fields.some(f => f.type === "password")) {
-    const passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
+  if (passwordField) {
+    // Essayer de simuler une saisie utilisateur plus authentique
+    passwordField.focus();
     passwordField.value = password;
     passwordField.dispatchEvent(new Event('input', { bubbles: true }));
     passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-  } else {
-    // Méthode de secours: rechercher par type
-    const passwordFields = document.querySelectorAll('input[type="password"]');
-    if (passwordFields.length > 0) {
-      const passwordField = passwordFields[0] as HTMLInputElement;
-      passwordField.value = password;
-      passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-      passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    passwordField.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
+    passwordField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
+    passwordField.blur();
   }
   
   // Tenter de soumettre le formulaire automatiquement si un bouton de soumission est présent
   setTimeout(() => {
     // Chercher le formulaire parent
     let form: HTMLFormElement | null = null;
-    if (fields.some(f => f.type === "password")) {
-      form = fields.find(f => f.type === "password")?.element.closest('form') || null;
-    } else if (fields.some(f => f.type === "name")) {
-      form = fields.find(f => f.type === "name")?.element.closest('form') || null;
-    } else if (fields.some(f => f.type === "email")) {
-      form = fields.find(f => f.type === "email")?.element.closest('form') || null;
+    
+    if (passwordField && passwordField.closest('form')) {
+      form = passwordField.closest('form');
+    } else if (usernameField && usernameField.closest('form')) {
+      form = usernameField.closest('form');
     }
     
     // Si un formulaire est trouvé, tenter de le soumettre
     if (form) {
       // Chercher un bouton de soumission dans le formulaire
-      const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+      const submitButton = form.querySelector('button[type="submit"], input[type="submit"], button:not([type]), button[class*="login"], button[class*="submit"], input[class*="login"], input[class*="submit"]');
+      
       if (submitButton) {
         (submitButton as HTMLElement).click();
+      } else {
+        // Si aucun bouton n'est trouvé, essayer de soumettre le formulaire directement
+        try {
+          form.requestSubmit();
+        } catch (e) {
+          try {
+            form.submit();
+          } catch (e2) {
+            console.error('Impossible de soumettre le formulaire:', e2);
+          }
+        }
+      }
+    } else {
+      // Si aucun formulaire n'est trouvé, chercher un bouton de connexion sur la page
+      const loginButtons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type]), button[class*="login"], button[class*="submit"], input[class*="login"], input[class*="submit"]');
+      
+      if (loginButtons.length > 0) {
+        // Filtrer les boutons visibles
+        const visibleButtons = Array.from(loginButtons).filter(button => isVisibleElement(button as HTMLElement));
+        
+        if (visibleButtons.length > 0) {
+          (visibleButtons[0] as HTMLElement).click();
+        }
       }
     }
-  }, 500);
+  }, 1000); // Augmenter le délai pour laisser plus de temps aux sites de traiter les entrées
 }
 
 /**
@@ -1429,30 +1558,89 @@ function fillOTPField(otp: string): void {
   const fields = detectAutofillFields();
   console.log('Champs OTP identifiés:', fields.filter(f => f.type === "otp"));
   
-  // Si des champs OTP sont trouvés, remplir le premier
-  if (fields.some(f => f.type === "otp")) {
-    const otpField = fields.find(f => f.type === "otp")?.element as HTMLInputElement;
-    otpField.value = otp;
-    otpField.dispatchEvent(new Event('input', { bubbles: true }));
-    otpField.dispatchEvent(new Event('change', { bubbles: true }));
-    console.log('Champ OTP rempli avec:', otp);
+  // Si des champs OTP sont trouvés, les remplir
+  const otpFields = fields.filter(f => f.type === "otp");
+  
+  if (otpFields.length > 0) {
+    // Vérifier s'il y a plusieurs champs pour les codes segmentés
+    if (otpFields.length > 1 && otpFields.length <= otp.length) {
+      // Remplir chaque champ avec un chiffre du code OTP
+      otpFields.forEach((field, index) => {
+        if (index < otp.length) {
+          const inputField = field.element as HTMLInputElement;
+          inputField.focus();
+          inputField.value = otp[index];
+          inputField.dispatchEvent(new Event('input', { bubbles: true }));
+          inputField.dispatchEvent(new Event('change', { bubbles: true }));
+          inputField.blur();
+        }
+      });
+      console.log('Champs OTP multiples remplis avec:', otp);
+    } else {
+      // Remplir un seul champ avec le code OTP complet
+      const otpField = otpFields[0].element as HTMLInputElement;
+      otpField.focus();
+      otpField.value = otp;
+      otpField.dispatchEvent(new Event('input', { bubbles: true }));
+      otpField.dispatchEvent(new Event('change', { bubbles: true }));
+      otpField.blur();
+      console.log('Champ OTP rempli avec:', otp);
+    }
     
     // Tenter de soumettre le formulaire automatiquement
     setTimeout(() => {
-      // Chercher le formulaire parent
-      const form = otpField.closest('form');
+      // Trouver le formulaire parent du premier champ OTP
+      const form = otpFields[0].element.closest('form');
       
       // Si un formulaire est trouvé, tenter de le soumettre
       if (form) {
         // Chercher un bouton de soumission dans le formulaire
-        const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+        const submitButton = form.querySelector('button[type="submit"], input[type="submit"], button:not([type]), button[class*="verify"], button[class*="confirm"], button[class*="submit"]');
+        
         if (submitButton) {
           (submitButton as HTMLElement).click();
+        } else {
+          // Si aucun bouton n'est trouvé, essayer de soumettre le formulaire directement
+          try {
+            form.requestSubmit();
+          } catch (e) {
+            try {
+              form.submit();
+            } catch (e2) {
+              console.error('Impossible de soumettre le formulaire OTP:', e2);
+            }
+          }
+        }
+      } else {
+        // Si aucun formulaire n'est trouvé, chercher un bouton de validation sur la page
+        const verifyButtons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type]), button[class*="verify"], button[class*="confirm"], button[class*="submit"]');
+        
+        if (verifyButtons.length > 0) {
+          // Filtrer les boutons visibles
+          const visibleButtons = Array.from(verifyButtons).filter(button => isVisibleElement(button as HTMLElement));
+          
+          if (visibleButtons.length > 0) {
+            (visibleButtons[0] as HTMLElement).click();
+          }
         }
       }
-    }, 500);
+    }, 1000); // Augmenter le délai pour laisser plus de temps aux sites de traiter les entrées
   } else {
     console.log('Aucun champ OTP trouvé');
+    
+    // Essai de détection alternative pour les champs OTP qui seraient masqués par des frameworks
+    const potentialOtpFields = Array.from(document.querySelectorAll<HTMLInputElement>(
+      'input[type="text"][maxlength="6"], input[type="number"][maxlength="6"], input[maxlength="6"], input[inputmode="numeric"], input[pattern="[0-9]*"]'
+    )).filter(field => isVisibleElement(field));
+    
+    if (potentialOtpFields.length > 0) {
+      potentialOtpFields[0].focus();
+      potentialOtpFields[0].value = otp;
+      potentialOtpFields[0].dispatchEvent(new Event('input', { bubbles: true }));
+      potentialOtpFields[0].dispatchEvent(new Event('change', { bubbles: true }));
+      potentialOtpFields[0].blur();
+      console.log('Champ OTP alternatif rempli avec:', otp);
+    }
   }
 }
 
