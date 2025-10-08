@@ -1,5 +1,5 @@
 // Script de contenu injecté dans les pages web
-console.log('SkapAuto content script chargé (Bitwarden-like mode)');
+console.log('SkapAuto content script chargé');
 
 // Interface pour les champs d'autofill
 interface AutofillField {
@@ -324,12 +324,7 @@ const siteConfig = {
   }
 };
 
-// État pour l'interface utilisateur inline (Bitwarden-like)
-let inlineButtons: Set<HTMLElement> = new Set();
-let activePopup: HTMLElement | null = null;
-let lastFocusedField: HTMLInputElement | HTMLTextAreaElement | null = null;
-
-// Variable pour suivre si l'autofill a déjà été tenté (kept for compatibility, not used to trigger auto actions)
+// Variable pour suivre si l'autofill a déjà été tenté
 let autofillAttempted = false;
 let otpAutofillAttempted = false;
 
@@ -374,10 +369,24 @@ fileInput.addEventListener('change', (event) => {
 // Initialiser le script dès le chargement
 (async () => {
   try {
-    // Setup field adorners and events (Bitwarden-like)
-    attachInlineIcons();
-
-    // Observers to attach adorners for dynamic UIs
+    // Vérifier s'il y a des champs de formulaire sur la page
+    const fields = detectAutofillFields();
+    
+    // Si des champs de formulaire sont détectés, tenter l'autofill automatique
+    if (fields.some(f => f.type === "password") && (fields.some(f => f.type === "name") || fields.some(f => f.type === "email"))) {
+      console.log('Champs de formulaire détectés, tentative d\'autofill automatique');
+      await autoFillCredentials();
+      autofillAttempted = true;
+    }
+    
+    // Si des champs OTP sont détectés, tenter l'autofill automatique
+    if (fields.some(f => f.type === "otp")) {
+      console.log('Champs OTP détectés, tentative d\'autofill automatique');
+      await autoFillOTP();
+      otpAutofillAttempted = true;
+    }
+    
+    // Configurer l'observateur de mutations pour détecter les nouveaux champs de formulaire
     setupMutationObserver();
     
     // Configurer la détection de soumission de formulaire pour sauvegarder les identifiants
@@ -388,553 +397,6 @@ fileInput.addEventListener('change', (event) => {
     console.error('Erreur lors de l\'initialisation du script de contenu:', error);
   }
 })();
-
-/**
- * Attache des icônes inline aux champs de saisie (style Bitwarden)
- */
-function attachInlineIcons(root: ParentNode = document): void {
-  const inputs = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-    'input[type="text"], input[type="email"], input[type="password"], input:not([type]), textarea'
-  );
-  
-  inputs.forEach((el) => {
-    if (!isVisibleElement(el as HTMLElement)) return;
-    if (el.hasAttribute('data-skap-adorned')) return; // Éviter les doublons
-    
-    const typeAttr = (el.getAttribute('type') || '').toLowerCase();
-    if (typeAttr === 'checkbox' || typeAttr === 'radio' || typeAttr === 'file' || typeAttr === 'submit' || typeAttr === 'button') return;
-    
-    const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
-    
-    // Préférer seulement les champs candidats de connexion
-    const isCandidate =
-      typeAttr === 'password' ||
-      ac === 'username' ||
-      ac === 'email' ||
-      ac === 'current-password' ||
-      ac === 'new-password' ||
-      isFieldCandidate(el);
-    
-    if (isCandidate) {
-      attachFieldIcon(el);
-      el.setAttribute('data-skap-adorned', 'true');
-      
-      // Ajouter les événements de focus
-      el.addEventListener('focus', () => {
-        lastFocusedField = el;
-      });
-    }
-  });
-}
-
-/**
- * Détermine si un champ est candidat pour l'autofill basé sur ses attributs
- */
-function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): boolean {
-  const id = element.id.toLowerCase();
-  const name = element.name.toLowerCase();
-  const className = element.className.toLowerCase();
-  
-  // Utiliser la configuration existante pour identifier les champs
-  const config = siteConfig.whiteList.fields;
-  
-  return (
-    config.usernameNames.some(n => name.includes(n)) ||
-    config.usernameIds.some(i => id.includes(i)) ||
-    config.emailNames.some(n => name.includes(n)) ||
-    config.emailIds.some(i => id.includes(i)) ||
-    config.passwordNames.some(n => name.includes(n)) ||
-    config.passwordIds.some(i => id.includes(i)) ||
-    config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i))
-  );
-}
-
-/**
- * Attache une icône à un champ spécifique
- */
-function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
-  // Créer l'icône
-  const icon = document.createElement('div');
-  icon.className = 'skap-field-icon';
-  icon.innerHTML = '🔑'; // Icône simple, peut être remplacée par SVG
-  
-  // Styles pour l'icône
-  Object.assign(icon.style, {
-    position: 'absolute',
-    right: '8px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '16px',
-    height: '16px',
-    cursor: 'pointer',
-    zIndex: '10000',
-    fontSize: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: '3px',
-    border: '1px solid #ccc',
-    userSelect: 'none'
-  });
-  
-  // Positionner le champ parent en relatif si nécessaire
-  const fieldStyle = window.getComputedStyle(field);
-  if (fieldStyle.position === 'static') {
-    field.style.position = 'relative';
-  }
-  
-  // Créer un conteneur si nécessaire
-  let container = field.parentElement;
-  if (!container || container.style.position !== 'relative') {
-    container = document.createElement('div');
-    container.style.position = 'relative';
-    container.style.display = 'inline-block';
-    container.style.width = '100%';
-    
-    field.parentNode?.insertBefore(container, field);
-    container.appendChild(field);
-  }
-  
-  // Ajouter l'icône au conteneur
-  container.appendChild(icon);
-  inlineButtons.add(icon);
-  
-  // Rendre l'icône focusable pour éviter qu'elle disparaisse lors du clic
-  icon.setAttribute('tabindex', '0');
-  
-  // Variable pour suivre l'état d'interaction
-  let isInteracting = false;
-  
-  // Événement de clic sur l'icône
-  icon.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    isInteracting = true;
-  });
-  
-  icon.addEventListener('click', async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Fermer le popup actuel s'il existe
-    if (activePopup) {
-      activePopup.remove();
-      activePopup = null;
-    }
-    
-    // Récupérer les identifiants correspondants
-    const credentials = await getMatchingCredentialsByETld();
-    
-    // Afficher le popup de sélection
-    showCredentialPopup(icon, credentials, field);
-    
-    // Réinitialiser l'état d'interaction après un délai
-    setTimeout(() => {
-      isInteracting = false;
-    }, 200);
-  });
-  
-  // Masquer l'icône quand le champ perd le focus (avec délai et vérifications)
-  field.addEventListener('blur', () => {
-    setTimeout(() => {
-      // Ne pas masquer si on est en train d'interagir avec l'icône ou s'il y a un popup actif
-      if (!isInteracting && !activePopup && document.activeElement !== icon) {
-        icon.style.display = 'none';
-      }
-    }, 150);
-  });
-  
-  // Afficher l'icône quand le champ gagne le focus
-  field.addEventListener('focus', () => {
-    icon.style.display = 'flex';
-    lastFocusedField = field;
-  });
-  
-  // Initialement masquer l'icône
-  icon.style.display = 'none';
-}
-
-/**
- * Récupère les identifiants correspondants basés sur l'eTLD (domaine effectif)
- */
-async function getMatchingCredentialsByETld(): Promise<Credential[]> {
-  try {
-    const response = await browser.runtime.sendMessage({ action: 'getPasswords' });
-    console.log(response);
-    if (response.success && response.passwords) {
-      const currentUrl = window.location.href;
-      const currentHostname = window.location.hostname;
-      console.log(response);
-      // Filtrer les identifiants qui correspondent au domaine actuel
-      return response.passwords.filter((cred: Credential) => {
-        if (!cred.url) return false;
-        try {
-          const credDomain = new URL(cred.url).hostname;
-          console.log(cred.url);
-          return credDomain === currentHostname || currentHostname.endsWith('.' + credDomain) || currentHostname.endsWith(cred.url) || currentHostname.endsWith(credDomain);
-        } catch {
-          return false;
-        }
-      });
-    }
-    return [];
-  } catch (error) {
-    console.error('Erreur lors de la récupération des identifiants:', error);
-    return [];
-  }
-}
-
-/**
- * Affiche le popup de sélection des identifiants (style Bitwarden)
- */
-function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], targetField: HTMLInputElement | HTMLTextAreaElement): void {
-  // Fermer le popup existant
-  if (activePopup) {
-    activePopup.remove();
-    activePopup = null;
-  }
-  
-  // Créer le popup
-  const popup = document.createElement('div');
-  popup.className = 'skap-credential-popup';
-  
-  // Styles du popup
-  Object.assign(popup.style, {
-    position: 'absolute',
-    backgroundColor: '#ffffff',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    zIndex: '10001',
-    minWidth: '250px',
-    maxWidth: '350px',
-    maxHeight: '300px',
-    overflowY: 'auto',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '14px'
-  });
-  
-  // Positionner le popup près de l'ancre
-  const anchorRect = anchor.getBoundingClientRect();
-  popup.style.top = (anchorRect.bottom + window.scrollY + 5) + 'px';
-  popup.style.left = (anchorRect.left + window.scrollX) + 'px';
-  
-  // Contenu du popup
-  if (credentials.length === 0) {
-    const noCredsDiv = document.createElement('div');
-    noCredsDiv.textContent = 'Aucun identifiant trouvé pour ce site';
-    noCredsDiv.style.padding = '12px';
-    noCredsDiv.style.color = '#666';
-    noCredsDiv.style.textAlign = 'center';
-    popup.appendChild(noCredsDiv);
-  } else {
-    // En-tête
-    const header = document.createElement('div');
-    header.textContent = 'Identifiants disponibles';
-    header.style.padding = '8px 12px';
-    header.style.borderBottom = '1px solid #eee';
-    header.style.fontWeight = 'bold';
-    header.style.backgroundColor = '#f8f9fa';
-    popup.appendChild(header);
-    
-    // Liste des identifiants
-    credentials.forEach((cred, index) => {
-      const item = document.createElement('div');
-      item.className = 'skap-credential-item';
-      
-      Object.assign(item.style, {
-        padding: '10px 12px',
-        cursor: 'pointer',
-        borderBottom: index < credentials.length - 1 ? '1px solid #eee' : 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      });
-      
-      // Favicon
-      const favicon = document.createElement('img');
-      favicon.src = cred.favicon || getFaviconUrl(cred.url || '');
-      favicon.style.width = '16px';
-      favicon.style.height = '16px';
-      favicon.style.flexShrink = '0';
-      favicon.onerror = () => {
-        favicon.style.display = 'none';
-      };
-      
-      // Informations de l'identifiant
-      const info = document.createElement('div');
-      info.style.flex = '1';
-      info.style.overflow = 'hidden';
-      
-      const username = document.createElement('div');
-      username.textContent = cred.username;
-      username.style.fontWeight = '500';
-      username.style.whiteSpace = 'nowrap';
-      username.style.overflow = 'hidden';
-      username.style.textOverflow = 'ellipsis';
-      
-      const description = document.createElement('div');
-      description.textContent = cred.description || new URL(cred.url || '').hostname;
-      description.style.fontSize = '12px';
-      description.style.color = '#666';
-      description.style.whiteSpace = 'nowrap';
-      description.style.overflow = 'hidden';
-      description.style.textOverflow = 'ellipsis';
-      
-      info.appendChild(username);
-      info.appendChild(description);
-      
-      item.appendChild(favicon);
-      item.appendChild(info);
-      
-      // Événements de survol
-      item.addEventListener('mouseenter', () => {
-        item.style.backgroundColor = '#f0f0f0';
-      });
-      
-      item.addEventListener('mouseleave', () => {
-        item.style.backgroundColor = 'transparent';
-      });
-      
-      // Événement de clic
-      item.addEventListener('click', () => {
-        fillCredentialIntoForm(cred, targetField);
-        popup.remove();
-        activePopup = null;
-      });
-      
-      popup.appendChild(item);
-    });
-  }
-  
-  // Ajouter le popup au document
-  document.body.appendChild(popup);
-  activePopup = popup;
-  
-  // Fermer le popup en cliquant à l'extérieur
-  setTimeout(() => {
-    const closeHandler = (e: Event) => {
-      if (!popup.contains(e.target as Node) && !anchor.contains(e.target as Node)) {
-        popup.remove();
-        activePopup = null;
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-    document.addEventListener('click', closeHandler);
-  }, 100);
-}
-
-/**
- * Remplit les champs du formulaire avec les identifiants sélectionnés
- */
-function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputElement | HTMLTextAreaElement): void {
-  const fields = detectAutofillFields();
-  
-  // Remplir le champ de nom d'utilisateur
-  let usernameField: HTMLInputElement | null = null;
-  
-  if (fields.some(f => f.type === "name")) {
-    usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
-  } else if (fields.some(f => f.type === "email")) {
-    usernameField = fields.find(f => f.type === "email")?.element as HTMLInputElement;
-  }
-  
-  if (usernameField) {
-    usernameField.value = credential.username;
-    usernameField.dispatchEvent(new Event('input', { bubbles: true }));
-    usernameField.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  
-  // Remplir le champ de mot de passe
-  const passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
-  if (passwordField) {
-    passwordField.value = credential.password;
-    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  
-  // Si le champ cible est un champ OTP et que l'identifiant a un OTP
-  if (targetField.type === 'text' && credential.otp && isOTPField(targetField)) {
-    generateTOTPCode(credential.otp).then(otpCode => {
-      if (otpCode) {
-        targetField.value = otpCode;
-        targetField.dispatchEvent(new Event('input', { bubbles: true }));
-        targetField.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-  }
-  
-  console.log('Identifiants remplis automatiquement');
-}
-
-/**
- * Affiche une mini-barre OTP près du champ focalisé (style Bitwarden)
- */
-function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, credentials: Credential[]): void {
-  // Fermer toute mini-barre existante
-  const existingMiniBar = document.querySelector('.skap-otp-minibar');
-  if (existingMiniBar) {
-    existingMiniBar.remove();
-  }
-  
-  // Créer la mini-barre
-  const miniBar = document.createElement('div');
-  miniBar.className = 'skap-otp-minibar';
-  
-  // Styles de la mini-barre
-  Object.assign(miniBar.style, {
-    position: 'absolute',
-    backgroundColor: '#2d3748',
-    color: 'white',
-    border: '1px solid #4a5568',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    fontSize: '12px',
-    fontFamily: 'Arial, sans-serif',
-    zIndex: '10002',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    minWidth: '200px'
-  });
-  
-  // Positionner la mini-barre près du champ
-  const fieldRect = targetField.getBoundingClientRect();
-  miniBar.style.top = (fieldRect.bottom + window.scrollY + 5) + 'px';
-  miniBar.style.left = (fieldRect.left + window.scrollX) + 'px';
-  
-  // Icône OTP
-  const otpIcon = document.createElement('span');
-  otpIcon.textContent = '🔐';
-  otpIcon.style.fontSize = '14px';
-  
-  // Texte informatif
-  const infoText = document.createElement('span');
-  infoText.textContent = 'Codes OTP disponibles:';
-  infoText.style.flex = '1';
-  
-  miniBar.appendChild(otpIcon);
-  miniBar.appendChild(infoText);
-  
-  // Boutons pour chaque identifiant avec OTP
-  credentials.forEach((cred, index) => {
-    if (cred.otp) {
-      const otpButton = document.createElement('button');
-      otpButton.textContent = cred.username.substring(0, 8) + (cred.username.length > 8 ? '...' : '');
-      
-      Object.assign(otpButton.style, {
-        backgroundColor: '#4299e1',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        padding: '4px 8px',
-        fontSize: '11px',
-        cursor: 'pointer',
-        marginLeft: '4px'
-      });
-      
-      // Événements de survol
-      otpButton.addEventListener('mouseenter', () => {
-        otpButton.style.backgroundColor = '#3182ce';
-      });
-      
-      otpButton.addEventListener('mouseleave', () => {
-        otpButton.style.backgroundColor = '#4299e1';
-      });
-      
-      // Événement de clic pour générer et remplir l'OTP
-      otpButton.addEventListener('click', async () => {
-        try {
-          const otpCode = await generateTOTPCode(cred.otp!);
-          if (otpCode) {
-            targetField.value = otpCode;
-            targetField.dispatchEvent(new Event('input', { bubbles: true }));
-            targetField.dispatchEvent(new Event('change', { bubbles: true }));
-            
-            // Afficher une notification de succès
-            showNotification(`Code OTP généré pour ${cred.username}`, 'success');
-            
-            // Fermer la mini-barre après utilisation
-            miniBar.remove();
-          } else {
-            showNotification('Erreur lors de la génération du code OTP', 'error');
-          }
-        } catch (error) {
-          console.error('Erreur OTP:', error);
-          showNotification('Erreur lors de la génération du code OTP', 'error');
-        }
-      });
-      
-      miniBar.appendChild(otpButton);
-    }
-  });
-  
-  // Bouton de fermeture
-  const closeButton = document.createElement('button');
-  closeButton.textContent = '×';
-  
-  Object.assign(closeButton.style, {
-    backgroundColor: 'transparent',
-    color: '#a0aec0',
-    border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '0 4px',
-    marginLeft: '8px'
-  });
-  
-  closeButton.addEventListener('click', () => {
-    miniBar.remove();
-  });
-  
-  closeButton.addEventListener('mouseenter', () => {
-    closeButton.style.color = 'white';
-  });
-  
-  closeButton.addEventListener('mouseleave', () => {
-    closeButton.style.color = '#a0aec0';
-  });
-  
-  miniBar.appendChild(closeButton);
-  
-  // Ajouter la mini-barre au document
-  document.body.appendChild(miniBar);
-  
-  // Fermer automatiquement après 10 secondes
-  setTimeout(() => {
-    if (miniBar.parentNode) {
-      miniBar.remove();
-    }
-  }, 10000);
-  
-  // Fermer en cliquant à l'extérieur
-  setTimeout(() => {
-    const closeHandler = (e: Event) => {
-      if (!miniBar.contains(e.target as Node) && !targetField.contains(e.target as Node)) {
-        miniBar.remove();
-        document.removeEventListener('click', closeHandler);
-      }
-    };
-    document.addEventListener('click', closeHandler);
-  }, 100);
-}
-
-/**
- * Détermine si un champ est un champ OTP
- */
-function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
-  const id = field.id.toLowerCase();
-  const name = field.name.toLowerCase();
-  const config = siteConfig.whiteList.fields;
-  
-  return (
-    config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i))
-  );
-}
 
 function detectAutofillFields(): AutofillField[] {
   // Store detected fields
@@ -1113,7 +575,7 @@ function detectAutofillFields(): AutofillField[] {
  * Configure un observateur de mutations pour détecter les nouveaux champs de formulaire
  */
 function setupMutationObserver(): void {
-  // Créer un observateur de mutations pour le système Bitwarden-like
+  // Créer un observateur de mutations
   const observer = new MutationObserver((mutations) => {
     // Vérifier si de nouveaux éléments ont été ajoutés
     let newInputsDetected = false;
@@ -1144,12 +606,10 @@ function setupMutationObserver(): void {
       if (newInputsDetected) break;
     }
     
-    // Si de nouveaux champs ont été détectés, attacher les icônes inline (style Bitwarden)
+    // Si de nouveaux champs ont été détectés, vérifier s'il s'agit de champs de formulaire
     if (newInputsDetected) {
-      console.log('Nouveaux champs détectés, ajout des icônes inline...');
-      setTimeout(() => {
-        attachInlineIcons(); // Attacher les icônes aux nouveaux champs
-      }, 500); // Attendre que le DOM soit stable
+      console.log('Nouveaux champs détectés, vérification...');
+      setTimeout(checkForNewLoginForms, 1000); // Attendre que le DOM soit stable
     }
   });
   
@@ -1161,7 +621,7 @@ function setupMutationObserver(): void {
     attributeFilter: ['type', 'id', 'name', 'autocomplete', 'placeholder', 'class']
   });
   
-  console.log('Observateur de mutations configuré (mode Bitwarden-like)');
+  console.log('Observateur de mutations configuré');
 }
 
 /**
@@ -1259,46 +719,23 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       sendResponse({ success: true, message: 'En attente du clic utilisateur pour le sélecteur de fichier' });
       break;
     case 'forceAutofill':
-      // Dans le mode Bitwarden-like, afficher le popup au lieu d'autofill direct
-      if (lastFocusedField) {
-        getMatchingCredentialsByETld().then(credentials => {
-          if (credentials.length > 0) {
-            // Trouver l'icône associée au champ focalisé
-            const icon = document.querySelector(`[data-skap-field-id="${lastFocusedField?.id || 'unknown'}"]`) as HTMLElement;
-            if (icon) {
-              showCredentialPopup(icon, credentials, lastFocusedField);
-              sendResponse({ success: true, message: 'Popup d\'identifiants affiché' });
-            } else {
-              sendResponse({ success: false, message: 'Aucune icône trouvée pour le champ' });
-            }
-          } else {
-            sendResponse({ success: false, message: 'Aucun identifiant trouvé pour ce site' });
-          }
-        }).catch(error => {
-          sendResponse({ success: false, message: error.message });
-        });
-      } else {
-        sendResponse({ success: false, message: 'Aucun champ focalisé' });
-      }
+      // Forcer l'autofill même si déjà tenté
+      autofillAttempted = false;
+      autoFillCredentials().then(() => {
+        sendResponse({ success: true, message: 'Autofill forcé effectué' });
+      }).catch(error => {
+        sendResponse({ success: false, message: error.message });
+      });
       return true; // Indique que la réponse sera envoyée de manière asynchrone
       
     case 'forceOTPAutofill':
-      // Dans le mode Bitwarden-like, afficher une mini-barre OTP au lieu d'autofill direct
-      if (lastFocusedField && isOTPField(lastFocusedField)) {
-        getMatchingCredentialsByETld().then(credentials => {
-          const otpCredentials = credentials.filter(cred => cred.otp);
-          if (otpCredentials.length > 0) {
-            showOTPMiniBar(lastFocusedField, otpCredentials);
-            sendResponse({ success: true, message: 'Mini-barre OTP affichée' });
-          } else {
-            sendResponse({ success: false, message: 'Aucun identifiant avec OTP trouvé' });
-          }
-        }).catch(error => {
-          sendResponse({ success: false, message: error.message });
-        });
-      } else {
-        sendResponse({ success: false, message: 'Aucun champ OTP focalisé' });
-      }
+      // Forcer l'autofill OTP même si déjà tenté
+      otpAutofillAttempted = false;
+      autoFillOTP().then(() => {
+        sendResponse({ success: true, message: 'Autofill OTP forcé effectué' });
+      }).catch(error => {
+        sendResponse({ success: false, message: error.message });
+      });
       return true; // Indique que la réponse sera envoyée de manière asynchrone
       
     default:
@@ -2633,4 +2070,4 @@ function injectFileSelector() {
 }
 
 // Exporter une fonction vide pour que le bundler ne se plaigne pas
-export {};
+export {}; 
