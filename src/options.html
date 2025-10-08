@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SkapAuto Options</title>
+  <style>
+    body { font-family: 'Work Sans', sans-serif; max-width: 800px; margin: 0 auto; padding: 24px; background: #1d1b21; color: #1d1b21; }
+    .card { background: #ced7e1; border-radius: 10px; padding: 20px; box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+    .row { display: flex; gap: 16px; margin-bottom: 16px; }
+    .col { flex: 1; }
+    label { display: block; font-weight: 600; margin-bottom: 8px; }
+    textarea, input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #1d1b21; background: #fff; color: #1d1b21; }
+    .actions { display: flex; gap: 12px; margin-top: 16px; }
+    button { padding: 10px 16px; border-radius: 8px; border: none; cursor: pointer; }
+    .primary { background: #f2c3c2; color: #1d1b21; }
+    .secondary { background: #ced7e1; color: #1d1b21; border: 1px solid #1d1b21; }
+    .status { margin-top: 12px; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Options SkapAuto</h1>
+    <div class="row">
+      <div class="col">
+        <label for="allowlist">Liste de domaines autorisés (un par ligne)</label>
+        <textarea id="allowlist" rows="8" placeholder="ex:\nexample.com\naccounts.google.com\n...\n"></textarea>
+      </div>
+      <div class="col">
+        <label for="language">Langue</label>
+        <select id="language">
+          <option value="fr">Français</option>
+          <option value="en">English</option>
+        </select>
+        <label for="cacheTtl" style="margin-top: 16px;">Durée du cache (minutes)</label>
+        <input id="cacheTtl" type="number" min="0" placeholder="60" />
+        <label style="margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+          <input id="autoFill" type="checkbox" /> Activer l'auto-remplissage
+        </label>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="save" class="primary">Enregistrer</button>
+      <button id="reset" class="secondary">Réinitialiser</button>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

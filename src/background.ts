@@ -4,6 +4,10 @@ import { type ClientEx, type Uuid, type Password } from './lib/decoder';
 
 // Importer la bibliothèque pour générer des codes TOTP
 import * as OTPAuth from "otpauth";
+// Stockage sécurisé AES-GCM
+import { setEncrypted, getDecrypted, remove as removeEncrypted, wipeKey } from './lib/secureStorage';
+// Logger utilitaire
+import { info as logInfo, warn as logWarn, error as logError, debug as logDebug } from './lib/logger';
 
 // Interface pour les paramètres TOTP
 interface TOTPParams {
@@ -32,7 +36,7 @@ let cachedPasswords: Password[] | null = null;
 export function setSessionToken(token: string) {
   // Stocker le token dans le stockage local
   browser.storage.local.set({ 'sessionToken': token }).then(() => {
-    console.log('Token de session sauvegardé dans le stockage local');
+    logInfo('Token de session sauvegardé dans le stockage local');
   });
 }
 
@@ -46,77 +50,49 @@ export function getSessionToken(): Promise<string | null> {
 }
 
 // Fonction pour stocker le client de manière sécurisée avec une expiration d'une heure
-function storeClientSecurely(client: ClientEx): Promise<void> {
-  const expirationTime = Date.now() + CLIENT_EXPIRATION_TIME;
-  
-  return new Promise((resolve) => {
-    // Utiliser browser.storage.local pour Firefox (pas de storage.session dans Firefox)
-    browser.storage.local.set({
-      'secureClient': {
-        client: client,
-        expirationTime: expirationTime
-      }
-    }).then(resolve);
-  });
+async function storeClientSecurely(client: ClientEx): Promise<void> {
+  await setEncrypted('secureClient', { client, ts: Date.now() });
 }
 
 // Fonction pour stocker les mots de passe de manière sécurisée avec une expiration d'une heure
-function storePasswordsSecurely(passwords: Password[]): Promise<void> {
-  const expirationTime = Date.now() + CLIENT_EXPIRATION_TIME;
-  
-  return new Promise((resolve) => {
-    // Utiliser browser.storage.local pour Firefox
-    browser.storage.local.set({
-      'securePasswords': {
-        passwords: passwords,
-        expirationTime: expirationTime
-      }
-    }).then(() => {
-      console.log('Mots de passe stockés de manière sécurisée avec expiration dans 1 heure');
-      resolve();
-    });
-  });
+async function storePasswordsSecurely(passwords: Password[]): Promise<void> {
+  await setEncrypted('securePasswords', { passwords, ts: Date.now() });
+  logInfo('Mots de passe stockés de manière sécurisée avec expiration dans 1 heure');
 }
 
 // Fonction pour récupérer le client stocké s'il est toujours valide
 async function getSecureClient(): Promise<ClientEx | null> {
-  return new Promise((resolve) => {
-    browser.storage.local.get(['secureClient']).then((result: any) => {
-      if (result.secureClient && result.secureClient.expirationTime > Date.now()) {
-        console.log('Client récupéré du stockage sécurisé');
-        resolve(result.secureClient.client);
-      } else {
-        if (result.secureClient) {
-          console.log('Client expiré, suppression du stockage');
-          browser.storage.local.remove(['secureClient']);
-        }
-        resolve(null);
-      }
-    });
-  });
+  const data = await getDecrypted<{ client: ClientEx; ts: number }>('secureClient');
+  if (data && (Date.now() - data.ts) < CLIENT_EXPIRATION_TIME) {
+    console.log('Client récupéré du stockage sécurisé');
+    return data.client;
+  } else {
+    if (data) {
+      console.log('Client expiré, suppression du stockage');
+    }
+    await removeEncrypted('secureClient');
+    return null;
+  }
 }
 
 // Fonction pour récupérer les mots de passe stockés s'ils sont toujours valides
 async function getSecurePasswords(): Promise<Password[] | null> {
-  return new Promise((resolve) => {
-    browser.storage.local.get(['securePasswords']).then((result: any) => {
-      if (result.securePasswords && result.securePasswords.expirationTime > Date.now()) {
-        console.log('Mots de passe récupérés du stockage sécurisé');
-        resolve(result.securePasswords.passwords);
-      } else {
-        if (result.securePasswords) {
-          console.log('Mots de passe expirés, suppression du stockage');
-          browser.storage.local.remove(['securePasswords']);
-        }
-        resolve(null);
-      }
-    });
-  });
+  const data = await getDecrypted<{ passwords: Password[]; ts: number }>('securePasswords');
+  if (data && (Date.now() - data.ts) < CLIENT_EXPIRATION_TIME) {
+    logInfo('Mots de passe récupérés du stockage sécurisé');
+    return data.passwords;
+  } else {
+    if (data) {
+      logWarn('Mots de passe expirés, suppression du stockage');
+    }
+    await removeEncrypted('securePasswords');
+    return null;
+  }
 }
 
 // Gérer les messages de l'extension
 browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
-  console.log('Message reçu dans le background:', message);
+  logDebug('Message reçu dans le background:', message);
   
   // Traiter les différents types de messages
   switch (message.action) {
@@ -137,7 +113,7 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
           }
         })
         .catch((error) => {
-          console.error('Erreur lors de la vérification du client sécurisé:', error);
+          logError('Erreur lors de la vérification du client sécurisé:', error);
           return { success: false, message: 'Erreur lors de la vérification du client sécurisé' };
         })
         .then(sendResponse);
@@ -146,7 +122,7 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
     case 'authenticate':
       // Authentifier le client
       if (currentClient && currentClient.id.id) {
-        console.log(currentClient);
+        logDebug(currentClient);
         auth(currentClient.id.id!, currentClient.c)
           .then(result => {
             if (result.error) {
@@ -155,15 +131,10 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
               // Mettre à jour le client avec la clé secrète
               if (currentClient && result.client) {
                 currentClient.c = result.client;
-                // Stocker le client mis à jour dans le stockage local
-                browser.storage.local.set({ 'currentClient': currentClient }).then(() => {
-                  console.log('Client authentifié sauvegardé dans le stockage local');
-                });
-                
-                // Stocker le client de manière sécurisée avec expiration
+                // Stocker le client de manière sécurisée (chiffrement AES-GCM)
                 storeClientSecurely(currentClient)
                   .then(() => {
-                    console.log('Client authentifié stocké de manière sécurisée');
+                    logInfo('Client authentifié stocké de manière sécurisée');
                   });
               }
               return { success: true, message: 'Authentification réussie' };
@@ -187,7 +158,7 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
         if (passwords) {
           // Utiliser les mots de passe en cache
           cachedPasswords = passwords;
-          console.log('Utilisation des mots de passe en cache');
+          logInfo('Utilisation des mots de passe en cache');
           response = { success: true, passwords: passwords };
           sendResponse(response);
         } else if (currentClient && currentClient.id.id) {
@@ -204,10 +175,10 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
                   // Stocker les mots de passe de manière sécurisée
                   storePasswordsSecurely(passwords)
                     .then(() => {
-                      console.log('Mots de passe stockés de manière sécurisée');
+                      logInfo('Mots de passe stockés de manière sécurisée');
                     });
                 }
-                console.log('Mots de passe récupérés:', passwords);
+                logInfo('Mots de passe récupérés:', passwords);
                 response = { 
                   success: true, 
                   passwords: passwords
@@ -243,7 +214,7 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
                 // Stocker les mots de passe de manière sécurisée
                 return storePasswordsSecurely(passwords)
                   .then(() => {
-                    console.log('Mots de passe récupérés et stockés de manière sécurisée');
+                    logInfo('Mots de passe récupérés et stockés de manière sécurisée');
                     response = { success: true, passwords: passwords };
                     sendResponse(response);
                   });
@@ -300,13 +271,13 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
       return true; // Indique que la réponse sera envoyée de manière asynchrone
 
     case 'classifyFields':
-      console.log('Demande de classification des champs');
+      logInfo('Demande de classification des champs');
       classifyFormFields()
         .then(fields => {
           return { success: true, fields };
         })
         .catch(error => {
-          console.error('Erreur lors de la classification des champs:', error);
+          logError('Erreur lors de la classification des champs:', error);
           return { success: false, message: error.message };
         })
         .then(sendResponse);
@@ -319,7 +290,7 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
           const code = generateTOTPCode(message.params);
           sendResponse({ success: true, code: code });
         } catch (error: any) {
-          console.error('Erreur lors de la génération du code TOTP:', error);
+          logError('Erreur lors de la génération du code TOTP:', error);
           sendResponse({ success: false, message: error.toString() });
         }
       } else {
@@ -357,20 +328,20 @@ async function initializeClient() {
   
   if (secureClient) {
     currentClient = secureClient;
-    console.log('Client restauré depuis le stockage sécurisé');
-    
+    logInfo('Client restauré depuis le stockage sécurisé');
+
     // Récupérer également les mots de passe sécurisés
     const securePasswords = await getSecurePasswords();
     if (securePasswords) {
       cachedPasswords = securePasswords;
-      console.log('Mots de passe restaurés depuis le stockage sécurisé');
+      logInfo('Mots de passe restaurés depuis le stockage sécurisé');
     }
   } else {
     // Si pas de client sécurisé, essayer le stockage local
     browser.storage.local.get(['currentClient']).then((result: any) => {
       if (result.currentClient) {
         currentClient = result.currentClient;
-        console.log('Client restauré depuis le stockage local');
+        logInfo('Client restauré depuis le stockage local');
       }
     });
   }
@@ -378,7 +349,7 @@ async function initializeClient() {
   // Restaurer le token de session
   browser.storage.local.get(['sessionToken']).then((result: any) => {
     if (result.sessionToken) {
-      console.log('Token de session restauré depuis le stockage local');
+      logInfo('Token de session restauré depuis le stockage local');
       // Informer le module client du token de session
       browser.runtime.sendMessage({ 
         action: 'restoreSessionToken', 
@@ -392,7 +363,23 @@ async function initializeClient() {
 initializeClient();
 
 // Afficher un message lorsque le service worker est installé
-console.log('Service worker SkapAuto installé pour Firefox');
+logInfo('Service worker SkapAuto installé pour Firefox');
+
+// Nettoyage des données sensibles en cas d'inactivité ou verrouillage
+function wipeSensitiveData() {
+  cachedPasswords = null;
+  currentClient = null;
+  removeEncrypted('secureClient');
+  removeEncrypted('securePasswords');
+  wipeKey();
+  logInfo('Données sensibles nettoyées (idle/lock)');
+}
+
+browser.idle.onStateChanged.addListener((state) => {
+  if (state === 'idle' || state === 'locked') {
+    wipeSensitiveData();
+  }
+});
 
 // Exporter une fonction vide pour que le bundler ne se plaigne pas
 export {};
@@ -438,7 +425,7 @@ async function classifyFormFields(): Promise<any> {
  */
 function generateTOTPCode(params: TOTPParams): string {
   try {
-    console.log('Génération du code TOTP avec les paramètres:', params);
+    logInfo('Génération du code TOTP avec les paramètres:', params);
     
     // Configurer l'authenticator
     const totp = new OTPAuth.TOTP({    
@@ -451,11 +438,11 @@ function generateTOTPCode(params: TOTPParams): string {
     
     // Générer le code
     const code = totp.generate();
-    console.log('Code TOTP généré:', code);
+    logInfo('Code TOTP généré:', code);
     
     return code;
   } catch (error) {
-    console.error('Erreur lors de la génération du code TOTP:', error);
+    logError('Erreur lors de la génération du code TOTP:', error);
     throw error;
   }
 }
@@ -490,12 +477,17 @@ async function handleFileSelected(message: any): Promise<any> {
       
       await browser.storage.local.set({ 'clientFileMetadata': fileMetadata });
       
-      // Notifier le popup que le client a été chargé
-      browser.runtime.sendMessage({
-        action: 'clientLoaded',
-        success: true,
-        fileMetadata: fileMetadata
-      });
+      // Notifier le popup que le client a été chargé (si ouvert)
+      try {
+        await browser.runtime.sendMessage({
+          action: 'clientLoaded',
+          success: true,
+          fileMetadata: fileMetadata
+        });
+      } catch (err) {
+        // Le popup n'est probablement pas ouvert; ignorer et continuer
+        logWarn(`Notification clientLoaded non délivrée: ${err instanceof Error ? err.message : String(err)}`);
+      }
       
       return { success: true };
     } else {
@@ -561,10 +553,10 @@ async function handleSaveNewCredential(message: any): Promise<any> {
       await storePasswordsSecurely(updatedPasswords);
     }
     
-    console.log('Identifiants enregistrés avec succès');
+    logInfo('Identifiants enregistrés avec succès');
     return { success: true };
   } catch (error) {
-    console.error('Erreur lors de l\'enregistrement des identifiants:', error);
+    logError('Erreur lors de l\'enregistrement des identifiants:', error);
     return { success: false, message: error instanceof Error ? error.message : 'Erreur inconnue' };
   }
-} 
+}
