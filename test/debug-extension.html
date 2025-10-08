@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .debug-section {
+            background: #f5f5f5;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007acc;
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .log-output {
+            background: #000;
+            color: #00ff00;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Extension Debug Test</h1>
+    
+    <div class="debug-section">
+        <h3>📍 Page Information</h3>
+        <p><strong>URL:</strong> <span id="page-url"></span></p>
+        <p><strong>Protocol:</strong> <span id="page-protocol"></span></p>
+        <p><strong>Host:</strong> <span id="page-host"></span></p>
+        <p><strong>User Agent:</strong> <span id="user-agent"></span></p>
+    </div>
+    
+    <div class="debug-section">
+        <h3>🔍 Extension Detection</h3>
+        <div id="extension-status" class="status warning">Checking extension...</div>
+        <div id="content-script-status" class="status warning">Checking content script...</div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>📝 Test Form Fields</h3>
+        <form id="test-form">
+            <input type="email" id="email" name="email" class="test-input" placeholder="Email" autocomplete="email">
+            <input type="password" id="password" name="password" class="test-input" placeholder="Password" autocomplete="current-password">
+            <input type="text" id="username" name="username" class="test-input" placeholder="Username" autocomplete="username">
+            <input type="text" id="otp" name="otp" class="test-input" placeholder="OTP Code" autocomplete="one-time-code">
+        </form>
+    </div>
+    
+    <div class="debug-section">
+        <h3>📊 Console Log</h3>
+        <div id="log-output" class="log-output">Waiting for logs...</div>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    
+    <script>
+        // Page info
+        document.getElementById('page-url').textContent = window.location.href;
+        document.getElementById('page-protocol').textContent = window.location.protocol;
+        document.getElementById('page-host').textContent = window.location.host;
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        
+        // Log capture
+        const logOutput = document.getElementById('log-output');
+        let logs = [];
+        
+        function addLog(level, ...args) {
+            const timestamp = new Date().toISOString().substr(11, 12);
+            const message = `[${timestamp}] ${level}: ${args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ')}`;
+            
+            logs.push(message);
+            logOutput.textContent = logs.join('\n');
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logs = [];
+            logOutput.textContent = 'Logs cleared...';
+        }
+        
+        // Override console methods
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn,
+            info: console.info
+        };
+        
+        console.log = (...args) => { addLog('LOG', ...args); originalConsole.log(...args); };
+        console.error = (...args) => { addLog('ERROR', ...args); originalConsole.error(...args); };
+        console.warn = (...args) => { addLog('WARN', ...args); originalConsole.warn(...args); };
+        console.info = (...args) => { addLog('INFO', ...args); originalConsole.info(...args); };
+        
+        // Initial log
+        addLog('INFO', '🚀 Debug page loaded');
+        
+        // Extension detection
+        let extensionDetected = false;
+        let contentScriptDetected = false;
+        
+        function updateStatus() {
+            const extensionStatus = document.getElementById('extension-status');
+            const contentScriptStatus = document.getElementById('content-script-status');
+            
+            if (extensionDetected) {
+                extensionStatus.className = 'status success';
+                extensionStatus.textContent = '✅ Extension detected!';
+            } else {
+                extensionStatus.className = 'status error';
+                extensionStatus.textContent = '❌ Extension not detected';
+            }
+            
+            if (contentScriptDetected) {
+                contentScriptStatus.className = 'status success';
+                contentScriptStatus.textContent = '✅ Content script active!';
+            } else {
+                contentScriptStatus.className = 'status error';
+                contentScriptStatus.textContent = '❌ Content script not detected';
+            }
+        }
+        
+        // Check for extension activity
+        let checkCount = 0;
+        const maxChecks = 20;
+        
+        function checkExtension() {
+            checkCount++;
+            addLog('INFO', `🔍 Extension check ${checkCount}/${maxChecks}`);
+            
+            // Check for extension-added attributes
+            const adornedInputs = document.querySelectorAll('input[data-skap-adorned]');
+            const skapIcons = document.querySelectorAll('.skap-icon');
+            
+            if (adornedInputs.length > 0 || skapIcons.length > 0) {
+                extensionDetected = true;
+                contentScriptDetected = true;
+                addLog('SUCCESS', `✅ Extension activity found! Adorned inputs: ${adornedInputs.length}, Icons: ${skapIcons.length}`);
+                updateStatus();
+                return;
+            }
+            
+            // Check if any console messages from SkapAuto
+            if (logs.some(log => log.includes('SkapAuto'))) {
+                contentScriptDetected = true;
+                addLog('SUCCESS', '✅ SkapAuto content script messages detected');
+            }
+            
+            updateStatus();
+            
+            if (checkCount < maxChecks) {
+                setTimeout(checkExtension, 1000);
+            } else {
+                addLog('ERROR', '❌ Extension check timeout - no activity detected');
+            }
+        }
+        
+        // Start checking after a short delay
+        setTimeout(checkExtension, 500);
+        
+        // DOM mutation observer
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes') {
+                    if (mutation.attributeName === 'data-skap-adorned') {
+                        extensionDetected = true;
+                        addLog('SUCCESS', '🎯 Extension activity: data-skap-adorned attribute detected');
+                        updateStatus();
+                    }
+                }
+                
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === Node.ELEMENT_NODE) {
+                            if (node.classList && node.classList.contains('skap-icon')) {
+                                extensionDetected = true;
+                                addLog('SUCCESS', '🎯 Extension activity: skap-icon element added');
+                                updateStatus();
+                            }
+                        }
+                    });
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-skap-adorned', 'class']
+        });
+        
+        // Test manual extension detection
+        setTimeout(() => {
+            addLog('INFO', '🧪 Testing manual extension detection...');
+            
+            // Try to trigger extension by focusing inputs
+            const inputs = document.querySelectorAll('input');
+            inputs.forEach((input, index) => {
+                setTimeout(() => {
+                    addLog('INFO', `👆 Focusing input ${index + 1}: ${input.type} (${input.placeholder})`);
+                    input.focus();
+                    setTimeout(() => input.blur(), 100);
+                }, index * 200);
+            });
+        }, 3000);
+        
+        // Check for specific extension globals or methods
+        setTimeout(() => {
+            addLog('INFO', '🔍 Checking for extension globals...');
+            
+            // Check if there are any extension-related globals
+            const extensionGlobals = ['chrome', 'browser', 'moz'];
+            extensionGlobals.forEach(global => {
+                if (window[global]) {
+                    addLog('INFO', `🌐 Found global: ${global}`);
+                }
+            });
+            
+            // Check document for extension-added elements
+            const extensionElements = document.querySelectorAll('[class*="skap"], [id*="skap"], [data-skap]');
+            if (extensionElements.length > 0) {
+                addLog('SUCCESS', `🎯 Found ${extensionElements.length} extension-related elements`);
+                extensionDetected = true;
+                updateStatus();
+            }
+        }, 5000);
+    </script>
+</body>
+</html>

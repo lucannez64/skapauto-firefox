@@ -1,5 +1,7 @@
 // Script de contenu injecté dans les pages web
-console.log('SkapAuto content script chargé (Bitwarden-like mode)');
+console.log('🔥 SkapAuto content script chargé (Bitwarden-like mode)');
+console.log('🔥 Content script URL:', window.location.href);
+console.log('🔥 Content script timestamp:', new Date().toISOString());
 
 // Interface pour les champs d'autofill
 interface AutofillField {
@@ -31,6 +33,17 @@ const siteConfig = {
   blackList: {
     form: { names: ["search"], ids: ["search"] },
     fields: { names: ["search", "q", "query"], ids: ["search", "q"] }
+  },
+  siteSpecific: {
+    paypal: {
+      domains: ["paypal.com", "www.paypal.com", "paypal.ch"],
+      blacklistOTP: {
+        // Empêcher les champs de mot de passe PayPal d'être détectés comme OTP
+        ids: ["password", "login_password"],
+        names: ["login_password", "password"],
+        classes: ["pin-password", "password"]
+      }
+    }
   },
   whiteList: {
     form: { names: ["login"], ids: ["login"] },
@@ -278,7 +291,9 @@ const siteConfig = {
         "totp",
         "totp-code",
         "totp_code",
-        "totpcode"
+        "totpcode",
+        "otc",
+        "totpPin"
       ],
       // IDs de champs OTP
       otpIds: [
@@ -318,7 +333,9 @@ const siteConfig = {
         "totp",
         "totp-code",
         "totp_code",
-        "totpcode"
+        "totpcode",
+        "totpPin",
+        "otc"
       ]
     }
   }
@@ -374,18 +391,30 @@ fileInput.addEventListener('change', (event) => {
 // Initialiser le script dès le chargement
 (async () => {
   try {
+    console.log('🚀 SkapAuto Extension: Starting initialization...');
+    
     // Setup field adorners and events (Bitwarden-like)
     attachInlineIcons();
 
     // Observers to attach adorners for dynamic UIs
     setupMutationObserver();
+    
+    // Setup Shadow DOM observers for existing Shadow DOM elements
+    setupShadowDOMObservers();
 
     // Configurer la détection de soumission de formulaire pour sauvegarder les identifiants
     setupFormSubmissionDetection();
 
-    console.log('Initialisation complète du script de contenu');
+    // Additional delay for dynamic Shadow DOM creation
+    setTimeout(() => {
+      console.log('🔍 Running delayed Shadow DOM detection...');
+      attachInlineIcons();
+      setupShadowDOMObservers();
+    }, 2000);
+
+    console.log('✅ SkapAuto Extension: Initialization complete');
   } catch (error) {
-    console.error('Erreur lors de l\'initialisation du script de contenu:', error);
+    console.error('❌ SkapAuto Extension: Initialization error:', error);
   }
 })();
 
@@ -393,9 +422,19 @@ fileInput.addEventListener('change', (event) => {
  * Attache des icônes inline aux champs de saisie (style Bitwarden)
  */
 function attachInlineIcons(root: ParentNode = document): void {
-  const inputs = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-    'input[type="text"], input[type="email"], input[type="password"], input:not([type]), textarea'
-  );
+  console.log('🎯 attachInlineIcons called with root:', root);
+  
+  // Use Shadow DOM aware detection
+  const allInputs = getAllInputElementsIncludingShadowDOM(root as any);
+  console.log(`🎯 Found ${allInputs.length} total inputs (including Shadow DOM)`);
+  
+  // Filter for relevant input types
+  const inputs = allInputs.filter(el => {
+    const typeAttr = (el.getAttribute('type') || '').toLowerCase();
+    return ['text', 'email', 'password', 'tel', ''].includes(typeAttr) || el.tagName.toLowerCase() === 'textarea';
+  });
+
+  console.log(`🎯 Filtered to ${inputs.length} relevant inputs:`, inputs);
 
   inputs.forEach((el) => {
     if (!isVisibleElement(el as HTMLElement)) return;
@@ -415,10 +454,12 @@ function attachInlineIcons(root: ParentNode = document): void {
       ac === 'new-password' ||
       isFieldCandidate(el);
 
+    console.log('🎯 Processing input:', el, 'isCandidate:', isCandidate);
+
     if (isCandidate) {
       attachFieldIcon(el);
       el.setAttribute('data-skap-adorned', 'true');
-
+      console.log(el)
       // Ajouter les événements de focus
       el.addEventListener('focus', () => {
         lastFocusedField = el;
@@ -466,10 +507,40 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
     'nom'
   ];
 
-  // Vérification du placeholder pour les champs email/nom
+  // Termes OTP à rechercher dans le placeholder
+  const otpPlaceholderTerms = [
+    'otp',
+    'code',
+    'verification',
+    'vérification',
+    'security',
+    'sécurité',
+    'auth',
+    'pin',
+    'token',
+    'mfa',
+    '2fa',
+    'two-factor',
+    'totp',
+    'one-time',
+    'unique',
+    'temporary',
+    'temporaire',
+    '6 digits',
+    '6 digit',
+    'enter code',
+    'entrez le code',
+    'saisissez le code'
+  ];
+
+  // Vérification du placeholder pour les champs email/nom/otp
   const isEmailPlaceholder = emailPlaceholderTerms.some(term => placeholder.includes(term));
   const isUsernamePlaceholder = usernamePlaceholderTerms.some(term => placeholder.includes(term));
-
+  const isOTPPlaceholder = otpPlaceholderTerms.some(term => placeholder.includes(term));
+  console.log( config.otpNames.some(n => name.includes(n)) ||
+    config.otpIds.some(i => id.includes(i)));
+  console.log(name);
+  console.log(id);
   return (
     config.usernameNames.some(n => name.includes(n)) ||
     config.usernameIds.some(i => id.includes(i)) ||
@@ -480,7 +551,8 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
     config.otpNames.some(n => name.includes(n)) ||
     config.otpIds.some(i => id.includes(i)) ||
     isEmailPlaceholder ||
-    isUsernamePlaceholder
+    isUsernamePlaceholder ||
+    isOTPPlaceholder
   );
 }
 
@@ -488,10 +560,13 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
  * Attache une icône à un champ spécifique
  */
 function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
+  // Détecter le type de champ pour choisir l'icône appropriée
+  const isOTP = isOTPField(field);
+  
   // Créer l'icône
   const icon = document.createElement('div');
   icon.className = 'skap-field-icon';
-  icon.innerHTML = '🔑'; // Icône simple, peut être remplacée par SVG
+  icon.innerHTML = isOTP ? '🔐' : '🔑'; // Icône différente pour OTP
 
   // Styles pour l'icône
   Object.assign(icon.style, {
@@ -507,9 +582,9 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: isOTP ? '#e6f3ff' : '#f0f0f0',
     borderRadius: '3px',
-    border: '1px solid #ccc',
+    border: isOTP ? '1px solid #4299e1' : '1px solid #ccc',
     userSelect: 'none'
   });
 
@@ -561,8 +636,19 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     // Récupérer les identifiants correspondants
     const credentials = await getMatchingCredentialsByETld();
 
-    // Afficher le popup de sélection
-    showCredentialPopup(icon, credentials, field);
+    // Si c'est un champ OTP, afficher la mini-barre OTP
+    if (isOTP) {
+      // Filtrer les identifiants qui ont un OTP
+      const otpCredentials = credentials.filter(cred => cred.otp);
+      if (otpCredentials.length > 0) {
+        showOTPMiniBar(field, otpCredentials);
+      } else {
+        showNotification('Aucun code OTP disponible pour ce site', 'info');
+      }
+    } else {
+      // Afficher le popup de sélection normal pour les champs username/password
+      showCredentialPopup(icon, credentials, field);
+    }
 
     // Réinitialiser l'état d'interaction après un délai
     setTimeout(() => {
@@ -763,54 +849,98 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
 }
 
 /**
+ * Simule une saisie utilisateur authentique pour un champ
+ */
+function simulateUserInput(field: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  // Focus sur le champ
+  field.focus();
+  
+  // Effacer le contenu existant
+  field.value = '';
+  
+  // Simuler la saisie caractère par caractère
+  for (let i = 0; i < value.length; i++) {
+    const char = value[i];
+    
+    // Événements de clavier
+    field.dispatchEvent(new KeyboardEvent('keydown', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      bubbles: true,
+      cancelable: true
+    }));
+    
+    field.dispatchEvent(new KeyboardEvent('keypress', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      bubbles: true,
+      cancelable: true
+    }));
+    
+    // Ajouter le caractère
+    field.value += char;
+    
+    // Événement input après chaque caractère
+    field.dispatchEvent(new InputEvent('input', {
+      data: char,
+      inputType: 'insertText',
+      bubbles: true,
+      cancelable: true
+    }));
+    
+    field.dispatchEvent(new KeyboardEvent('keyup', {
+      key: char,
+      code: `Key${char.toUpperCase()}`,
+      bubbles: true,
+      cancelable: true
+    }));
+  }
+  
+  // Événements finaux
+  field.dispatchEvent(new Event('change', { bubbles: true }));
+  field.dispatchEvent(new Event('blur', { bubbles: true }));
+  
+  // Déclencher la validation si nécessaire
+  field.dispatchEvent(new Event('focusout', { bubbles: true }));
+}
+
+/**
  * Remplit les champs du formulaire avec les identifiants sélectionnés
  */
 function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputElement | HTMLTextAreaElement): void {
   const fields = detectAutofillFields();
 
-  // Remplir le champ de nom d'utilisateur
+  // Find username field
   let usernameField: HTMLInputElement | null = null;
-  if (targetField.type === "password") {
-    targetField.value = credential.password;
-    targetField.dispatchEvent(new Event('input', { bubbles: true }));
-    targetField.dispatchEvent(new Event('change', { bubbles: true }));
-  } else if (targetField.type === "name" || targetField.type === "email") {
-    targetField.value = credential.username;
-    targetField.dispatchEvent(new Event('input', { bubbles: true }));
-    targetField.dispatchEvent(new Event('change', { bubbles: true }));
-  }
   if (fields.some(f => f.type === "name")) {
     usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
   } else if (fields.some(f => f.type === "email")) {
     usernameField = fields.find(f => f.type === "email")?.element as HTMLInputElement;
   }
 
+  // Find password field
+  const passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
+
+  // Fill username field (always fill if found)
   if (usernameField) {
-    usernameField.value = credential.username;
-    usernameField.dispatchEvent(new Event('input', { bubbles: true }));
-    usernameField.dispatchEvent(new Event('change', { bubbles: true }));
+    simulateUserInput(usernameField, credential.username);
   }
 
-  // Remplir le champ de mot de passe
-  const passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
+  // Fill password field (always fill if found)
   if (passwordField) {
-    passwordField.value = credential.password;
-    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
+    simulateUserInput(passwordField, credential.password);
   }
 
   // Si le champ cible est un champ OTP et que l'identifiant a un OTP
   if (targetField.type === 'text' && credential.otp && isOTPField(targetField)) {
     generateTOTPCode(credential.otp).then(otpCode => {
       if (otpCode) {
-        targetField.value = otpCode;
-        targetField.dispatchEvent(new Event('input', { bubbles: true }));
-        targetField.dispatchEvent(new Event('change', { bubbles: true }));
+        simulateUserInput(targetField, otpCode);
       }
     });
   }
 
-  console.log('Identifiants remplis automatiquement');
+  console.log('Identifiants remplis automatiquement avec simulation utilisateur');
 }
 
 /**
@@ -967,35 +1097,154 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
 }
 
 /**
+ * Vérifie si le domaine actuel correspond à un site spécifique
+ */
+function getCurrentSiteConfig() {
+  const hostname = window.location.hostname.toLowerCase();
+  
+  for (const [siteName, config] of Object.entries(siteConfig.siteSpecific)) {
+    if (config.domains.some(domain => hostname.includes(domain))) {
+      return { siteName, config };
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Détermine si un champ est un champ OTP
  */
 function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
   const id = field.id.toLowerCase();
   const name = field.name.toLowerCase();
+  const placeholder = field.placeholder.toLowerCase();
+  const autocomplete = field.getAttribute('autocomplete')?.toLowerCase() || '';
+  const className = field.className.toLowerCase();
   const config = siteConfig.whiteList.fields;
+
+  // Vérifier les règles spécifiques au site
+  const currentSite = getCurrentSiteConfig();
+  if (currentSite && currentSite.config.blacklistOTP) {
+    const blacklist = currentSite.config.blacklistOTP;
+    
+    // Si le champ correspond aux critères de blacklist OTP, ne pas le détecter comme OTP
+    if (blacklist.ids.some(blackId => id === blackId.toLowerCase()) ||
+        blacklist.names.some(blackName => name === blackName.toLowerCase()) ||
+        blacklist.classes.some(blackClass => className.includes(blackClass.toLowerCase()))) {
+      return false;
+    }
+  }
+
+  // Check autocomplete attribute for standard OTP values
+  const otpAutocompleteValues = [
+    'one-time-code',
+    'one-time-password',
+    'otp',
+    'totp'
+  ];
+
+  // Check placeholder text for OTP indicators
+  const otpPlaceholderTerms = [
+    'otp',
+    'code',
+    'verification',
+    'vérification',
+    'security',
+    'sécurité',
+    'auth',
+    'pin',
+    'token',
+    'mfa',
+    '2fa',
+    'two-factor',
+    'totp',
+    'one-time',
+    'unique',
+    'temporary',
+    'temporaire',
+    '6 digits',
+    '6 digit',
+    '6-digit',
+    'enter code',
+    'entrez le code',
+    'saisissez le code',
+    'authentication code',
+    'authenticator'
+  ];
 
   return (
     config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i))
+    config.otpIds.some(i => id.includes(i)) ||
+    otpAutocompleteValues.includes(autocomplete) ||
+    otpPlaceholderTerms.some(term => placeholder.includes(term)) ||
+    config.otpNames.some(n => className.includes(n))
   );
+}
+
+/**
+ * Traverse Shadow DOM to find all input elements
+ */
+function getAllInputElementsIncludingShadowDOM(root: Document | ShadowRoot | Element = document): HTMLInputElement[] {
+  const inputs: HTMLInputElement[] = [];
+  console.log('🔍 getAllInputElementsIncludingShadowDOM called with root:', root);
+  
+  // Get inputs from current root
+  const currentInputs = root.querySelectorAll<HTMLInputElement>(
+    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="datetime-local"]):not([type="month"]):not([type="time"]):not([type="week"]), textarea'
+  );
+  
+  inputs.push(...Array.from(currentInputs));
+  console.log(`📝 Found ${currentInputs.length} inputs in current root:`, root);
+  
+  // Traverse Shadow DOM
+  const elementsWithShadow = root.querySelectorAll('*');
+  let shadowRootsFound = 0;
+  elementsWithShadow.forEach(element => {
+    if (element.shadowRoot) {
+      shadowRootsFound++;
+      console.log('🌟 Found Shadow DOM in element:', element);
+      // Recursively search in Shadow DOM
+      const shadowInputs = getAllInputElementsIncludingShadowDOM(element.shadowRoot);
+      inputs.push(...shadowInputs);
+    }
+  });
+  
+  console.log(`🌟 Found ${shadowRootsFound} Shadow DOM roots in current level`);
+  console.log(`📊 Total inputs found so far: ${inputs.length}`);
+  
+  return inputs;
 }
 
 function detectAutofillFields(): AutofillField[] {
   // Store detected fields
   const autofillFields: AutofillField[] = [];
 
-  // Regular expressions for field detection based on attributes and ID/name patterns
+  // Enhanced regular expressions for field detection based on attributes and ID/name patterns
   const patterns = {
-    name: /^(?:name|full[_-]?name|first[_-]?name|last[_-]?name|fname|lname|given[_-]?name|family[_-]?name|current-email|j_username|user_name|user|user-name|login|vb_login_username|user name|user id|user-id|userid|id|form_loginname|wpname|mail|loginid|login id|login_name|openid_identifier|authentication_email|openid|auth_email|auth_id|authentication_identifier|authentication_id|customer_number|customernumber|onlineid|identifier|ww_x_util|loginfmt|username|log(in)?id|account|account[-_]?name|email[-_]?address)$/i,
+    name: /^(?:name|full[_-]?name|first[_-]?name|last[_-]?name|fname|lname|given[_-]?name|family[_-]?name|current-email|j_username|user_name|user|user-name|login|vb_login_username|user name|user id|user-id|userid|id|form_loginname|wpname|mail|loginid|login id|login_name|openid_identifier|authentication_email|openid|auth_email|auth_id|authentication_identifier|authentication_id|customer_number|customernumber|onlineid|identifier|ww_x_util|loginfmt|username|log(in)?id|account|account[-_]?name|email[-_]?address|loginname|signin|sign-in)$/i,
     email: /^(?:e[_-]?mail|email[_-]?address|mail|e.?mail|courriel|correo.*electr(o|ó)nico|メールアドレス|Электронной.?Почты|邮件|邮箱|電郵地址|ഇ-മെയില്‍|ഇലക്ട്രോണിക്.?മെയിൽ|ایمیل|پست.*الکترونیک|ईमेल|इलॅक्ट्रॉनिक.?मेल|(\\b|_)eposta(\\b|_)|(?:いめーる|電子.?郵便|[Ee]-?mail)(.?住所)?|email_address|email-address|emailaddress|user_email|user-email|login_email|login-email|authentication_email|auth_email|form_email|wpmail|mail_address|mail-address|mailaddress|address|e_mail|e_mail_address|emailid|email_id|email-id)$/i,
-    password: /^(?:password|pass|pwd|current[_-]?password|new[_-]?password|j_password|user_password|user-password|login_password|login-password|passwort|contraseña|senha|mot de passe|auth_pass|authentication_password|web_password|wppassword|userpassword|user-pass|form_pw|loginpassword|session_password|sessionpassword|ap_password|password1|password-1|pass-word|passw|passwrd|upassword|user_pass)$/i,
-    otp: /^(?:otp|one[_-]?time[_-]?code|verification[_-]?code|auth[_-]?code|security[_-]?code|2fa|one-time-password|one_time_password|verification-code|verification_code|verificationcode|security-code|security_code|securitycode|auth-code|auth_code|authcode|code|code-input|code_input|codeinput|pin|pin-code|pin_code|pincode|token|token-code|token_code|tokencode|mfa-code|mfa_code|mfacode|2fa-code|2fa_code|2facode|two-factor-code|two_factor_code|twofactorcode|totp|totp-code|totp_code|totpcode)$/i
+    password: /^(?:password|pass|pwd|current[_-]?password|new[_-]?password|j_password|user_password|user-password|login_password|login-password|passwort|contraseña|senha|mot de passe|auth_pass|authentication_password|web_password|wppassword|userpassword|user-pass|form_pw|loginpassword|session_password|sessionpassword|ap_password|password1|password-1|pass-word|passw|passwrd|upassword|user_pass|signin-password|sign-in-password)$/i,
+    otp: /^(?:otp|one[_-]?time[_-]?code|verification[_-]?code|auth[_-]?code|security[_-]?code|2fa|one-time-password|one_time_password|verification-code|verification_code|verificationcode|security-code|security_code|securitycode|auth-code|auth_code|authcode|code|code-input|code_input|codeinput|pin|pin-code|pin_code|pincode|token|token-code|token_code|tokencode|mfa-code|mfa_code|mfacode|2fa-code|2fa_code|2facode|two-factor-code|two_factor_code|twofactorcode|totp|totp-code|totp_code|totpcode|otc|totppin)$/i
   };
 
-  // Find all input elements
-  const inputElements = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
-    'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="datetime-local"]):not([type="month"]):not([type="time"]):not([type="week"]), textarea'
-  );
+  // Enhanced placeholder patterns for better detection
+  const placeholderPatterns = {
+    name: /username|user name|login|account|identifier|sign in|signin|user id|user-id|userid/i,
+    email: /email|e-mail|mail|@|example@|your email|enter email|email address/i,
+    password: /password|pass|pwd|enter password|your password|sign in password|signin password/i,
+    otp: /code|otp|verification|auth|security|2fa|mfa|pin|token|one-time|6 digit|6-digit|enter code/i
+  };
+
+  // Enhanced class name patterns
+  const classPatterns = {
+    name: /username|user-name|userid|login|account|signin|sign-in|user_name|loginname/i,
+    email: /email|mail|user-email|login-email/i,
+    password: /password|pass|pwd|user-password|login-password|signin-password/i,
+    otp: /otp|code|verification|auth|security|2fa|mfa|pin|token/i
+  };
+
+  // Find all input elements including those in Shadow DOM
+  const inputElements = getAllInputElementsIncludingShadowDOM();
 
   // Process each input element
   inputElements.forEach(element => {
@@ -1011,11 +1260,34 @@ function detectAutofillFields(): AutofillField[] {
     const autocomplete = element.getAttribute("autocomplete")?.toLowerCase() || "";
     const ariaLabel = element.getAttribute("aria-label")?.toLowerCase() || "";
     const className = element.className.toLowerCase();
+    const placeholder = element.placeholder.toLowerCase();
 
     // Determine field type based on attributes
     let fieldType: AutofillField["type"] | null = null;
 
-    if (autocomplete === "off") {
+    // Skip fields with autocomplete="off" unless they have strong indicators
+    const hasStrongIndicators = 
+      type === "password" || 
+      type === "email" ||
+      patterns.password.test(id) || 
+      patterns.password.test(name) ||
+      patterns.email.test(id) || 
+      patterns.email.test(name) ||
+      patterns.name.test(id) || 
+      patterns.name.test(name) ||
+      classPatterns.password.test(className) ||
+      classPatterns.email.test(className) ||
+      classPatterns.name.test(className) ||
+      patterns.otp.test(className) ||
+      patterns.otp.test(name) ||
+      patterns.otp.test(id);
+
+    console.log(name);
+    console.log(className);
+    console.log(id);
+    console.log(hasStrongIndicators);
+
+    if (autocomplete === "off" && !hasStrongIndicators) {
       return;
     }
 
@@ -1065,83 +1337,81 @@ function detectAutofillFields(): AutofillField[] {
       }
     }
 
-    // Check by class name for common patterns
+    // Check by placeholder text
+    if (!fieldType && placeholder) {
+      if (placeholderPatterns.name.test(placeholder)) {
+        fieldType = "name";
+      } else if (placeholderPatterns.email.test(placeholder)) {
+        fieldType = "email";
+      } else if (placeholderPatterns.password.test(placeholder)) {
+        fieldType = "password";
+      } else if (placeholderPatterns.otp.test(placeholder)) {
+        fieldType = "otp";
+      }
+    }
+
+    // Check by class name
     if (!fieldType && className) {
-      if (/username|user-name|userid|login|account/i.test(className)) {
+      if (classPatterns.name.test(className)) {
         fieldType = "name";
-      } else if (/email/i.test(className)) {
+      } else if (classPatterns.email.test(className)) {
         fieldType = "email";
-      } else if (/password|pwd|pass/i.test(className)) {
+      } else if (classPatterns.password.test(className)) {
         fieldType = "password";
-      } else if (/otp|code|token|2fa|mfa/i.test(className)) {
+      } else if (classPatterns.otp.test(className)) {
         fieldType = "otp";
       }
     }
 
-    // Check by placeholder or label text
+    // Check for associated label text
     if (!fieldType) {
-      const placeholder = element.placeholder.toLowerCase();
-      const labelElement = document.querySelector(`label[for="${element.id}"]`);
-      const labelText = labelElement ? labelElement.textContent?.toLowerCase() || "" : "";
-
-      if (patterns.name.test(placeholder) || patterns.name.test(labelText) ||
-        /username|user name|identifier|login|account/i.test(placeholder) ||
-        /username|user name|identifier|login|account/i.test(labelText)) {
-        fieldType = "name";
-      } else if (patterns.email.test(placeholder) || patterns.email.test(labelText)) {
-        fieldType = "email";
-      } else if (patterns.password.test(placeholder) || patterns.password.test(labelText)) {
-        fieldType = "password";
-      } else if (patterns.otp.test(placeholder) || patterns.otp.test(labelText)) {
-        fieldType = "otp";
-      }
-    }
-
-    // Special case for OTP: inputs with maxlength of 1-8 and numeric pattern or inputmode
-    if (!fieldType &&
-      element instanceof HTMLInputElement &&
-      ((element.maxLength >= 1 && element.maxLength <= 8) ||
-        element.getAttribute("inputmode") === "numeric") &&
-      (element.pattern === "[0-9]*" || element.getAttribute("inputmode") === "numeric")) {
-      fieldType = "otp";
-    }
-
-    // Check for nearby labels that might not be linked by id
-    if (!fieldType) {
-      // Get all labels that are nearby (same parent or grandparent)
-      const parent = element.parentElement;
-      const grandparent = parent?.parentElement;
-      const nearbyLabels: HTMLLabelElement[] = [];
-
-      if (parent) {
-        nearbyLabels.push(...Array.from(parent.querySelectorAll('label')));
-      }
-
-      if (grandparent) {
-        nearbyLabels.push(...Array.from(grandparent.querySelectorAll('label')));
-      }
-
-      // Check if any labels match our patterns
-      for (const label of nearbyLabels) {
-        const labelText = label.textContent?.toLowerCase() || "";
-
-        if (patterns.name.test(labelText) || /username|user name|identifier|login|account/i.test(labelText)) {
+      const labelElement = document.querySelector(`label[for="${element.id}"]`) as HTMLLabelElement;
+      if (labelElement) {
+        const labelText = labelElement.textContent?.toLowerCase() || "";
+        if (placeholderPatterns.name.test(labelText)) {
           fieldType = "name";
-          break;
-        } else if (patterns.email.test(labelText)) {
+        } else if (placeholderPatterns.email.test(labelText)) {
           fieldType = "email";
-          break;
-        } else if (patterns.password.test(labelText)) {
+        } else if (placeholderPatterns.password.test(labelText)) {
           fieldType = "password";
-          break;
-        } else if (patterns.otp.test(labelText)) {
+        } else if (placeholderPatterns.otp.test(labelText)) {
           fieldType = "otp";
-          break;
         }
       }
     }
 
-    // Add the field if a type was determined
+    // Special OTP detection based on maxlength and inputmode
+    if (!fieldType && element instanceof HTMLInputElement) {
+      const maxLength = element.maxLength;
+      const inputMode = element.inputMode?.toLowerCase() || "";
+      
+      if ((maxLength >= 4 && maxLength <= 8) && (inputMode === "numeric" || type === "tel")) {
+        fieldType = "otp";
+      }
+    }
+
+    // Fallback detection based on context and position
+    if (!fieldType) {
+      const form = element.closest('form');
+      if (form) {
+        const formInputs = Array.from(form.querySelectorAll('input[type="text"], input[type="email"], input[type="password"], input:not([type])'));
+        const currentIndex = formInputs.indexOf(element);
+        
+        // If it's the first field in a login form, likely username/email
+        if (currentIndex === 0 && formInputs.length >= 2) {
+          fieldType = "name";
+        }
+        // If it's the second field and first is not password, likely password
+        else if (currentIndex === 1 && formInputs.length >= 2) {
+          const firstField = formInputs[0] as HTMLInputElement;
+          if (firstField.type !== "password") {
+            fieldType = "password";
+          }
+        }
+      }
+    }
+
+    // Add field if type was determined
     if (fieldType) {
       autofillFields.push({
         element,
@@ -1156,11 +1426,66 @@ function detectAutofillFields(): AutofillField[] {
 /**
  * Configure un observateur de mutations pour détecter les nouveaux champs de formulaire
  */
+/**
+ * Setup Shadow DOM observers for elements that might contain Shadow DOM
+ */
+function setupShadowDOMObservers(root: Document | Element = document): void {
+  // Find all elements that might have Shadow DOM
+  const elementsWithShadow = root.querySelectorAll('*');
+  
+  elementsWithShadow.forEach(element => {
+    if (element.shadowRoot) {
+      // Create observer for this Shadow DOM
+      const shadowObserver = new MutationObserver((mutations) => {
+        let newInputsDetected = false;
+
+        for (const mutation of mutations) {
+          if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+            for (const node of Array.from(mutation.addedNodes)) {
+              if (node instanceof HTMLElement) {
+                const inputs = node.querySelectorAll('input, textarea');
+                if (inputs.length > 0) {
+                  newInputsDetected = true;
+                  break;
+                }
+              }
+            }
+          }
+          else if (mutation.type === 'attributes' &&
+            mutation.target instanceof HTMLElement &&
+            (mutation.target.tagName === 'INPUT' || mutation.target.tagName === 'TEXTAREA')) {
+            newInputsDetected = true;
+            break;
+          }
+
+          if (newInputsDetected) break;
+        }
+
+        if (newInputsDetected) {
+          console.log('Nouveaux champs détectés dans Shadow DOM, ajout des icônes inline...');
+          setTimeout(() => {
+            attachInlineIcons();
+          }, 500);
+        }
+      });
+
+      // Observer this Shadow DOM
+      shadowObserver.observe(element.shadowRoot, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['type', 'name', 'id', 'class', 'placeholder']
+      });
+    }
+  });
+}
+
 function setupMutationObserver(): void {
   // Créer un observateur de mutations pour le système Bitwarden-like
   const observer = new MutationObserver((mutations) => {
     // Vérifier si de nouveaux éléments ont été ajoutés
     let newInputsDetected = false;
+    let newShadowDOMDetected = false;
 
     for (const mutation of mutations) {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
@@ -1172,7 +1497,20 @@ function setupMutationObserver(): void {
             const inputs = node.querySelectorAll('input, textarea');
             if (inputs.length > 0) {
               newInputsDetected = true;
-              break;
+            }
+            
+            // Vérifier si l'élément ou ses enfants ont un Shadow DOM
+            const elementsWithShadow = node.querySelectorAll('*');
+            for (const element of Array.from(elementsWithShadow)) {
+              if (element.shadowRoot) {
+                newShadowDOMDetected = true;
+                break;
+              }
+            }
+            
+            // Vérifier si le nœud lui-même a un Shadow DOM
+            if (node.shadowRoot) {
+              newShadowDOMDetected = true;
             }
           }
         }
@@ -1185,7 +1523,7 @@ function setupMutationObserver(): void {
         break;
       }
 
-      if (newInputsDetected) break;
+      if (newInputsDetected && newShadowDOMDetected) break;
     }
 
     // Si de nouveaux champs ont été détectés, attacher les icônes inline (style Bitwarden)
@@ -1194,6 +1532,14 @@ function setupMutationObserver(): void {
       setTimeout(() => {
         attachInlineIcons(); // Attacher les icônes aux nouveaux champs
       }, 500); // Attendre que le DOM soit stable
+    }
+    
+    // Si de nouveaux Shadow DOM ont été détectés, configurer les observateurs
+    if (newShadowDOMDetected) {
+      console.log('Nouveaux Shadow DOM détectés, configuration des observateurs...');
+      setTimeout(() => {
+        setupShadowDOMObservers();
+      }, 100);
     }
   });
 
@@ -1208,49 +1554,7 @@ function setupMutationObserver(): void {
   console.log('Observateur de mutations configuré (mode Bitwarden-like)');
 }
 
-/**
- * Vérifie si de nouveaux formulaires de connexion sont apparus
- */
-async function checkForNewLoginForms(): Promise<void> {
-  // Identifier les champs de formulaire
-  const fields = detectAutofillFields();
-  console.log('Champs de formulaire détectés:', fields);
 
-  // Vérifier si les champs sont vides (non remplis)
-  const passwordEmpty = fields.some(f => f.type === "password" && (!f.element.value || f.element.value === ''));
-  const hasNameField = fields.some(f => f.type === "name");
-  const hasEmailField = fields.some(f => f.type === "email");
-  const nameFieldEmpty = fields.some(f => f.type === "name" && (!f.element.value || f.element.value === ''));
-  const emailFieldEmpty = fields.some(f => f.type === "email" && (!f.element.value || f.element.value === ''));
-  const usernameEmpty = nameFieldEmpty || emailFieldEmpty;
-  console.log(usernameEmpty);
-
-  if (passwordEmpty && usernameEmpty) {
-    console.log('Nouveau formulaire de connexion détecté, tentative d\'autofill');
-    await autoFillCredentials();
-    autofillAttempted = true;
-  } else if (passwordEmpty) {
-    console.log('Nouveau formulaire de connexion détecté, tentative d\'autofill');
-    await autoFillCredentials();
-    autofillAttempted = true;
-  } else if (usernameEmpty) {
-    console.log('Nouveau formulaire de connexion détecté, tentative d\'autofill');
-    await autoFillCredentials();
-    autofillAttempted = true;
-  }
-
-  // Si des champs OTP sont détectés et que l'autofill OTP n'a pas encore été tenté
-  if (fields.some(f => f.type === "otp") && !otpAutofillAttempted) {
-    // Vérifier si les champs sont vides (non remplis)
-    const otpEmpty = fields.some(f => f.type === "otp" && !f.element.value);
-
-    if (otpEmpty) {
-      console.log('Nouveau champ OTP détecté, tentative d\'autofill');
-      await autoFillOTP();
-      otpAutofillAttempted = true;
-    }
-  }
-}
 
 // Écouter les messages du background
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1751,14 +2055,8 @@ function fillPasswordForm(username: string, password: string): void {
 
   // Remplir le champ de nom d'utilisateur
   if (usernameField) {
-    // Essayer de simuler une saisie utilisateur plus authentique
-    usernameField.focus();
-    usernameField.value = username;
-    usernameField.dispatchEvent(new Event('input', { bubbles: true }));
-    usernameField.dispatchEvent(new Event('change', { bubbles: true }));
-    usernameField.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-    usernameField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    usernameField.blur();
+    // Utiliser la simulation utilisateur améliorée
+    simulateUserInput(usernameField, username);
   }
 
   // Remplir le champ de mot de passe
@@ -1780,14 +2078,8 @@ function fillPasswordForm(username: string, password: string): void {
 
   // Remplir le champ de mot de passe
   if (passwordField) {
-    // Essayer de simuler une saisie utilisateur plus authentique
-    passwordField.focus();
-    passwordField.value = password;
-    passwordField.dispatchEvent(new Event('input', { bubbles: true }));
-    passwordField.dispatchEvent(new Event('change', { bubbles: true }));
-    passwordField.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
-    passwordField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
-    passwordField.blur();
+    // Utiliser la simulation utilisateur améliorée
+    simulateUserInput(passwordField, password);
   }
 
   // Tenter de soumettre le formulaire automatiquement si un bouton de soumission est présent
@@ -2170,23 +2462,15 @@ function fillOTPField(otp: string): void {
       otpFields.forEach((field, index) => {
         if (index < otp.length) {
           const inputField = field.element as HTMLInputElement;
-          inputField.focus();
-          inputField.value = otp[index];
-          inputField.dispatchEvent(new Event('input', { bubbles: true }));
-          inputField.dispatchEvent(new Event('change', { bubbles: true }));
-          inputField.blur();
+          simulateUserInput(inputField, otp[index]);
         }
       });
-      console.log('Champs OTP multiples remplis avec:', otp);
+      console.log('Champs OTP multiples remplis avec simulation utilisateur:', otp);
     } else {
       // Remplir un seul champ avec le code OTP complet
       const otpField = otpFields[0].element as HTMLInputElement;
-      otpField.focus();
-      otpField.value = otp;
-      otpField.dispatchEvent(new Event('input', { bubbles: true }));
-      otpField.dispatchEvent(new Event('change', { bubbles: true }));
-      otpField.blur();
-      console.log('Champ OTP rempli avec:', otp);
+      simulateUserInput(otpField, otp);
+      console.log('Champ OTP rempli avec simulation utilisateur:', otp);
     }
 
     // Tenter de soumettre le formulaire automatiquement

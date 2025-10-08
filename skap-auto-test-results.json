@@ -1,0 +1,412 @@
+{
+  "timestamp": "2025-10-08T16:54:58.640Z",
+  "results": [
+    {
+      "site": {
+        "name": "Facebook",
+        "url": "https://www.facebook.com/login",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Twitter/X",
+        "url": "https://twitter.com/i/flow/login",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "LinkedIn",
+        "url": "https://www.linkedin.com/login",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Instagram",
+        "url": "https://www.instagram.com/accounts/login/",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Discord",
+        "url": "https://discord.com/login",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 3,
+      "totalFields": 3,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Reddit",
+        "url": "https://www.reddit.com/login/",
+        "type": "social"
+      },
+      "status": "success",
+      "fieldsWithIcons": 0,
+      "totalFields": 2,
+      "detectionRate": "0.00"
+    },
+    {
+      "site": {
+        "name": "Gmail",
+        "url": "https://accounts.google.com/signin",
+        "type": "email"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 3,
+      "detectionRate": "66.67"
+    },
+    {
+      "site": {
+        "name": "Outlook",
+        "url": "https://login.live.com/",
+        "type": "email"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Yahoo Mail",
+        "url": "https://login.yahoo.com/",
+        "type": "email"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Amazon",
+        "url": "https://www.amazon.com/ap/signin",
+        "type": "ecommerce"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "eBay",
+        "url": "https://signin.ebay.com/",
+        "type": "ecommerce"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "PayPal",
+        "url": "https://www.paypal.com/signin",
+        "type": "ecommerce"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 2,
+      "detectionRate": "50.00"
+    },
+    {
+      "site": {
+        "name": "Shopify",
+        "url": "https://accounts.shopify.com/login",
+        "type": "ecommerce"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Netflix",
+        "url": "https://www.netflix.com/login",
+        "type": "streaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "YouTube",
+        "url": "https://accounts.google.com/signin",
+        "type": "streaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 3,
+      "detectionRate": "66.67"
+    },
+    {
+      "site": {
+        "name": "Spotify",
+        "url": "https://accounts.spotify.com/login",
+        "type": "streaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Twitch",
+        "url": "https://www.twitch.tv/login",
+        "type": "streaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 3,
+      "totalFields": 3,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "GitHub",
+        "url": "https://github.com/login",
+        "type": "professional"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Stack Overflow",
+        "url": "https://stackoverflow.com/users/login",
+        "type": "professional"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Slack",
+        "url": "https://slack.com/signin",
+        "type": "professional"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Microsoft 365",
+        "url": "https://login.microsoftonline.com/",
+        "type": "professional"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 3,
+      "detectionRate": "66.67"
+    },
+    {
+      "site": {
+        "name": "Salesforce",
+        "url": "https://login.salesforce.com/",
+        "type": "professional"
+      },
+      "status": "success",
+      "fieldsWithIcons": 0,
+      "totalFields": 2,
+      "detectionRate": "0.00"
+    },
+    {
+      "site": {
+        "name": "Steam",
+        "url": "https://store.steampowered.com/login/",
+        "type": "gaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 2,
+      "detectionRate": "50.00"
+    },
+    {
+      "site": {
+        "name": "Epic Games",
+        "url": "https://www.epicgames.com/id/login",
+        "type": "gaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Riot Games",
+        "url": "https://auth.riotgames.com/",
+        "type": "gaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Battle.net",
+        "url": "https://us.battle.net/login/",
+        "type": "gaming"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Chase",
+        "url": "https://secure01a.chase.com/web/auth/",
+        "type": "banking"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Bank of America",
+        "url": "https://secure.bankofamerica.com/login/",
+        "type": "banking"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 2,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "New York Times",
+        "url": "https://myaccount.nytimes.com/auth/login",
+        "type": "media"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Medium",
+        "url": "https://medium.com/m/signin",
+        "type": "media"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "Dropbox",
+        "url": "https://www.dropbox.com/login",
+        "type": "cloud"
+      },
+      "status": "success",
+      "fieldsWithIcons": 1,
+      "totalFields": 1,
+      "detectionRate": "100.00"
+    },
+    {
+      "site": {
+        "name": "OneDrive",
+        "url": "https://login.live.com/",
+        "type": "cloud"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 3,
+      "detectionRate": "66.67"
+    },
+    {
+      "site": {
+        "name": "Google Drive",
+        "url": "https://accounts.google.com/signin",
+        "type": "cloud"
+      },
+      "status": "success",
+      "fieldsWithIcons": 2,
+      "totalFields": 3,
+      "detectionRate": "66.67"
+    }
+  ],
+  "summary": {
+    "totalTested": 33,
+    "successful": 33,
+    "successRate": "100.00",
+    "averageDetectionRate": "87.88",
+    "byType": {
+      "social": {
+        "total": 6,
+        "successful": 6
+      },
+      "email": {
+        "total": 3,
+        "successful": 3
+      },
+      "ecommerce": {
+        "total": 4,
+        "successful": 4
+      },
+      "streaming": {
+        "total": 4,
+        "successful": 4
+      },
+      "professional": {
+        "total": 5,
+        "successful": 5
+      },
+      "gaming": {
+        "total": 4,
+        "successful": 4
+      },
+      "banking": {
+        "total": 2,
+        "successful": 2
+      },
+      "media": {
+        "total": 2,
+        "successful": 2
+      },
+      "cloud": {
+        "total": 3,
+        "successful": 3
+      }
+    }
+  }
+}

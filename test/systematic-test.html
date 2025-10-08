@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkapAuto Extension - Systematic Test Suite</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .header p {
+            margin: 10px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .test-controls {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-warning {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .test-case {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .test-case:hover {
+            border-color: #007bff;
+            box-shadow: 0 4px 12px rgba(0,123,255,0.15);
+        }
+
+        .test-case.passed {
+            border-color: #28a745;
+            background: #f8fff9;
+        }
+
+        .test-case.failed {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .test-case.running {
+            border-color: #ffc107;
+            background: #fffdf5;
+        }
+
+        .test-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-title {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .test-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .status-pending {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+
+        .status-running {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-passed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .test-content {
+            padding: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.15s ease-in-out;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+
+        .test-log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+
+        .log-info {
+            color: #17a2b8;
+        }
+
+        .log-success {
+            color: #28a745;
+        }
+
+        .log-error {
+            color: #dc3545;
+        }
+
+        .log-warning {
+            color: #ffc107;
+        }
+
+        .overall-status {
+            padding: 20px;
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: 600;
+        }
+
+        .shadow-host {
+            border: 2px dashed #6c757d;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+
+        .shadow-label {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-bottom: 10px;
+            font-style: italic;
+        }
+
+        .test-actions {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 SkapAuto Extension Test Suite</h1>
+            <p>Comprehensive systematic testing for autofill functionality</p>
+        </div>
+
+        <div class="test-controls">
+            <button class="btn btn-primary" onclick="runAllTests()">🚀 Run All Tests</button>
+            <button class="btn btn-success" onclick="runPassedTests()">✅ Re-run Passed</button>
+            <button class="btn btn-warning" onclick="runFailedTests()">❌ Re-run Failed</button>
+            <button class="btn btn-danger" onclick="clearAllTests()">🗑️ Clear Results</button>
+            <div style="margin-left: auto;">
+                <span id="testProgress">Ready to test</span>
+            </div>
+        </div>
+
+        <div class="test-grid">
+            <!-- Test Case 1: Basic Login Form -->
+            <div class="test-case" id="test-basic-login">
+                <div class="test-header">
+                    <div class="test-title">Basic Login Form</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <form>
+                        <div class="form-group">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" name="username" placeholder="Enter username">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" name="password" placeholder="Enter password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </form>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-basic-login')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-basic-login')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-basic-login"></div>
+                </div>
+            </div>
+
+            <!-- Test Case 2: Email Login Form -->
+            <div class="test-case" id="test-email-login">
+                <div class="test-header">
+                    <div class="test-title">Email Login Form</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <form>
+                        <div class="form-group">
+                            <label class="form-label">Email Address</label>
+                            <input type="email" class="form-control" name="email" placeholder="user@example.com">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" name="password" placeholder="Enter password">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Sign In</button>
+                    </form>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-email-login')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-email-login')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-email-login"></div>
+                </div>
+            </div>
+
+            <!-- Test Case 3: Shadow DOM Login -->
+            <div class="test-case" id="test-shadow-login">
+                <div class="test-header">
+                    <div class="test-title">Shadow DOM Login</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <div class="shadow-label">🌑 Shadow DOM Container</div>
+                    <div class="shadow-host" id="shadow-host-login"></div>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-shadow-login')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-shadow-login')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-shadow-login"></div>
+                </div>
+            </div>
+
+            <!-- Test Case 4: Multiple Forms -->
+            <div class="test-case" id="test-multiple-forms">
+                <div class="test-header">
+                    <div class="test-title">Multiple Forms on Page</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <form style="margin-bottom: 15px; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">
+                        <h6>Login Form</h6>
+                        <input type="text" class="form-control" name="username" placeholder="Username" style="margin-bottom: 10px;">
+                        <input type="password" class="form-control" name="password" placeholder="Password">
+                    </form>
+                    <form style="padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">
+                        <h6>Registration Form</h6>
+                        <input type="email" class="form-control" name="email" placeholder="Email" style="margin-bottom: 10px;">
+                        <input type="password" class="form-control" name="new-password" placeholder="New Password">
+                    </form>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-multiple-forms')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-multiple-forms')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-multiple-forms"></div>
+                </div>
+            </div>
+
+            <!-- Test Case 5: OTP Field -->
+            <div class="test-case" id="test-otp-field">
+                <div class="test-header">
+                    <div class="test-title">OTP/2FA Field</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <form>
+                        <div class="form-group">
+                            <label class="form-label">Verification Code</label>
+                            <input type="text" class="form-control" name="otp" placeholder="Enter 6-digit code" maxlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Alternative: Security Code</label>
+                            <input type="text" class="form-control" name="verification-code" placeholder="Security code">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Verify</button>
+                    </form>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-otp-field')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-otp-field')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-otp-field"></div>
+                </div>
+            </div>
+
+            <!-- Test Case 6: Dynamic Form -->
+            <div class="test-case" id="test-dynamic-form">
+                <div class="test-header">
+                    <div class="test-title">Dynamically Added Form</div>
+                    <div class="test-status status-pending">PENDING</div>
+                </div>
+                <div class="test-content">
+                    <button class="btn btn-secondary" onclick="createDynamicForm('test-dynamic-form')">Create Dynamic Form</button>
+                    <div id="dynamic-form-container"></div>
+                    <div class="test-actions">
+                        <button class="btn btn-sm btn-primary" onclick="runSingleTest('test-dynamic-form')">Run Test</button>
+                        <button class="btn btn-sm btn-warning" onclick="clearForm('test-dynamic-form')">Clear</button>
+                    </div>
+                    <div class="test-log" id="log-test-dynamic-form"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="overall-status" id="overallStatus">
+            Ready to run tests
+        </div>
+    </div>
+
+    <script>
+        // Test state management
+        let testResults = {};
+        let runningTests = new Set();
+
+        // Initialize Shadow DOM for test case 3
+        function initializeShadowDOM() {
+            const shadowHost = document.getElementById('shadow-host-login');
+            if (shadowHost && !shadowHost.shadowRoot) {
+                const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+                shadowRoot.innerHTML = `
+                    <style>
+                        .shadow-form { padding: 15px; }
+                        .shadow-input { 
+                            width: 100%; 
+                            padding: 8px; 
+                            margin: 5px 0; 
+                            border: 1px solid #ccc; 
+                            border-radius: 4px; 
+                        }
+                        .shadow-button { 
+                            padding: 8px 16px; 
+                            background: #007bff; 
+                            color: white; 
+                            border: none; 
+                            border-radius: 4px; 
+                            cursor: pointer; 
+                        }
+                    </style>
+                    <form class="shadow-form">
+                        <input type="text" class="shadow-input" name="username" placeholder="Shadow Username">
+                        <input type="password" class="shadow-input" name="password" placeholder="Shadow Password">
+                        <button type="submit" class="shadow-button">Shadow Login</button>
+                    </form>
+                `;
+            }
+        }
+
+        // Create dynamic form
+        function createDynamicForm(testId) {
+            const container = document.querySelector(`#${testId} #dynamic-form-container`);
+            container.innerHTML = `
+                <form style="margin-top: 15px; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    <div class="form-group">
+                        <label class="form-label">Dynamic Username</label>
+                        <input type="text" class="form-control" name="dynamic-username" placeholder="Dynamic username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dynamic Password</label>
+                        <input type="password" class="form-control" name="dynamic-password" placeholder="Dynamic password">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Dynamic Login</button>
+                </form>
+            `;
+            logMessage(testId, 'Dynamic form created', 'info');
+        }
+
+        // Logging functions
+        function logMessage(testId, message, type = 'info') {
+            const logContainer = document.getElementById(`log-${testId}`);
+            if (logContainer) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                logEntry.textContent = `[${timestamp}] ${message}`;
+                logContainer.appendChild(logEntry);
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+        }
+
+        function clearLog(testId) {
+            const logContainer = document.getElementById(`log-${testId}`);
+            if (logContainer) {
+                logContainer.innerHTML = '';
+            }
+        }
+
+        // Test status management
+        function setTestStatus(testId, status) {
+            const testCase = document.getElementById(testId);
+            const statusElement = testCase.querySelector('.test-status');
+            
+            // Remove old status classes
+            testCase.classList.remove('passed', 'failed', 'running');
+            statusElement.classList.remove('status-pending', 'status-running', 'status-passed', 'status-failed');
+            
+            // Add new status
+            switch(status) {
+                case 'running':
+                    testCase.classList.add('running');
+                    statusElement.classList.add('status-running');
+                    statusElement.textContent = 'RUNNING';
+                    runningTests.add(testId);
+                    break;
+                case 'passed':
+                    testCase.classList.add('passed');
+                    statusElement.classList.add('status-passed');
+                    statusElement.textContent = 'PASSED';
+                    runningTests.delete(testId);
+                    testResults[testId] = 'passed';
+                    break;
+                case 'failed':
+                    testCase.classList.add('failed');
+                    statusElement.classList.add('status-failed');
+                    statusElement.textContent = 'FAILED';
+                    runningTests.delete(testId);
+                    testResults[testId] = 'failed';
+                    break;
+                case 'pending':
+                    statusElement.classList.add('status-pending');
+                    statusElement.textContent = 'PENDING';
+                    runningTests.delete(testId);
+                    delete testResults[testId];
+                    break;
+            }
+            updateOverallStatus();
+        }
+
+        // Update overall status
+        function updateOverallStatus() {
+            const totalTests = document.querySelectorAll('.test-case').length;
+            const passedTests = Object.values(testResults).filter(r => r === 'passed').length;
+            const failedTests = Object.values(testResults).filter(r => r === 'failed').length;
+            const runningCount = runningTests.size;
+            
+            const statusElement = document.getElementById('overallStatus');
+            
+            if (runningCount > 0) {
+                statusElement.textContent = `Running ${runningCount} test(s)...`;
+                statusElement.style.color = '#ffc107';
+            } else if (passedTests + failedTests === 0) {
+                statusElement.textContent = 'Ready to run tests';
+                statusElement.style.color = '#6c757d';
+            } else {
+                statusElement.textContent = `Results: ${passedTests} passed, ${failedTests} failed (${totalTests} total)`;
+                if (failedTests === 0) {
+                    statusElement.style.color = '#28a745';
+                } else if (passedTests === 0) {
+                    statusElement.style.color = '#dc3545';
+                } else {
+                    statusElement.style.color = '#ffc107';
+                }
+            }
+            
+            // Update progress
+            const progressElement = document.getElementById('testProgress');
+            if (runningCount > 0) {
+                progressElement.textContent = `Running ${runningCount}/${totalTests} tests`;
+            } else {
+                progressElement.textContent = `${passedTests + failedTests}/${totalTests} completed`;
+            }
+        }
+
+        // Test execution functions
+        async function runSingleTest(testId) {
+            setTestStatus(testId, 'running');
+            clearLog(testId);
+            logMessage(testId, `Starting test: ${testId}`, 'info');
+
+            try {
+                // Wait for extension to be ready
+                await new Promise(resolve => setTimeout(resolve, 500));
+
+                // Check if extension is loaded
+                const extensionLoaded = checkExtensionLoaded(testId);
+                if (!extensionLoaded) {
+                    throw new Error('Extension not detected');
+                }
+
+                // Check for autofill icons
+                const iconsFound = await checkAutofillIcons(testId);
+                if (!iconsFound) {
+                    throw new Error('No autofill icons found');
+                }
+
+                // Test autofill functionality
+                const autofillWorked = await testAutofillFunctionality(testId);
+                if (!autofillWorked) {
+                    throw new Error('Autofill functionality failed');
+                }
+
+                // Test form submission
+                const submissionWorked = await testFormSubmission(testId);
+                if (!submissionWorked) {
+                    logMessage(testId, 'Form submission test skipped (no submit button clicked)', 'warning');
+                }
+
+                setTestStatus(testId, 'passed');
+                logMessage(testId, 'Test completed successfully!', 'success');
+
+            } catch (error) {
+                setTestStatus(testId, 'failed');
+                logMessage(testId, `Test failed: ${error.message}`, 'error');
+            }
+        }
+
+        function checkExtensionLoaded(testId) {
+            // Check for extension-specific elements or console messages
+            const hasSkrapElements = document.querySelectorAll('[data-skap-adorned]').length > 0;
+            const hasSkrapIcons = document.querySelectorAll('.skap-icon').length > 0;
+            
+            if (hasSkrapElements || hasSkrapIcons) {
+                logMessage(testId, 'Extension detected (found skap elements)', 'success');
+                return true;
+            }
+            
+            logMessage(testId, 'Extension not detected', 'error');
+            return false;
+        }
+
+        async function checkAutofillIcons(testId) {
+            const testCase = document.getElementById(testId);
+            const inputs = testCase.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
+            
+            let iconsFound = 0;
+            
+            for (const input of inputs) {
+                // Focus on input to trigger icon appearance
+                input.focus();
+                await new Promise(resolve => setTimeout(resolve, 200));
+                
+                // Check for autofill icon
+                const hasIcon = input.hasAttribute('data-skap-adorned') || 
+                               input.parentElement?.querySelector('.skap-icon') ||
+                               document.querySelector('.skap-icon[style*="flex"]');
+                
+                if (hasIcon) {
+                    iconsFound++;
+                    logMessage(testId, `Autofill icon found for ${input.name || input.type} field`, 'success');
+                } else {
+                    logMessage(testId, `No autofill icon for ${input.name || input.type} field`, 'warning');
+                }
+                
+                input.blur();
+            }
+            
+            if (iconsFound > 0) {
+                logMessage(testId, `Found ${iconsFound} autofill icon(s)`, 'success');
+                return true;
+            }
+            
+            return false;
+        }
+
+        async function testAutofillFunctionality(testId) {
+            const testCase = document.getElementById(testId);
+            const inputs = testCase.querySelectorAll('input[type="text"], input[type="email"], input[type="password"]');
+            
+            if (inputs.length === 0) {
+                logMessage(testId, 'No input fields found', 'warning');
+                return false;
+            }
+            
+            // Focus on first input and look for autofill icon
+            const firstInput = inputs[0];
+            firstInput.focus();
+            await new Promise(resolve => setTimeout(resolve, 300));
+            
+            // Look for visible autofill icon
+            const visibleIcon = document.querySelector('.skap-icon[style*="flex"]') ||
+                               firstInput.parentElement?.querySelector('.skap-icon');
+            
+            if (visibleIcon) {
+                logMessage(testId, 'Clicking autofill icon...', 'info');
+                visibleIcon.click();
+                
+                // Wait for autofill to complete
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Check if fields were filled
+                let filledFields = 0;
+                inputs.forEach(input => {
+                    if (input.value && input.value.trim() !== '') {
+                        filledFields++;
+                        logMessage(testId, `Field ${input.name || input.type} filled with: ${input.value}`, 'success');
+                    }
+                });
+                
+                if (filledFields > 0) {
+                    logMessage(testId, `Autofill successful: ${filledFields} field(s) filled`, 'success');
+                    return true;
+                } else {
+                    logMessage(testId, 'Autofill failed: no fields were filled', 'error');
+                    return false;
+                }
+            } else {
+                logMessage(testId, 'No visible autofill icon found', 'error');
+                return false;
+            }
+        }
+
+        async function testFormSubmission(testId) {
+            const testCase = document.getElementById(testId);
+            const submitButton = testCase.querySelector('button[type="submit"]');
+            
+            if (!submitButton) {
+                logMessage(testId, 'No submit button found', 'warning');
+                return false;
+            }
+            
+            // Add event listener to prevent actual submission
+            const form = submitButton.closest('form');
+            if (form) {
+                const submitHandler = (e) => {
+                    e.preventDefault();
+                    logMessage(testId, 'Form submission intercepted (test passed)', 'success');
+                    form.removeEventListener('submit', submitHandler);
+                };
+                form.addEventListener('submit', submitHandler);
+                
+                // Click submit button
+                logMessage(testId, 'Testing form submission...', 'info');
+                submitButton.click();
+                
+                // Wait a bit to see if submission was triggered
+                await new Promise(resolve => setTimeout(resolve, 500));
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Clear form fields
+        function clearForm(testId) {
+            const testCase = document.getElementById(testId);
+            const inputs = testCase.querySelectorAll('input');
+            inputs.forEach(input => {
+                input.value = '';
+            });
+            clearLog(testId);
+            logMessage(testId, 'Form cleared', 'info');
+        }
+
+        // Batch test operations
+        async function runAllTests() {
+            const testCases = document.querySelectorAll('.test-case');
+            for (const testCase of testCases) {
+                await runSingleTest(testCase.id);
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Delay between tests
+            }
+        }
+
+        async function runPassedTests() {
+            const passedTests = Object.keys(testResults).filter(id => testResults[id] === 'passed');
+            for (const testId of passedTests) {
+                await runSingleTest(testId);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        async function runFailedTests() {
+            const failedTests = Object.keys(testResults).filter(id => testResults[id] === 'failed');
+            for (const testId of failedTests) {
+                await runSingleTest(testId);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+        }
+
+        function clearAllTests() {
+            const testCases = document.querySelectorAll('.test-case');
+            testCases.forEach(testCase => {
+                setTestStatus(testCase.id, 'pending');
+                clearLog(testCase.id);
+            });
+            testResults = {};
+            runningTests.clear();
+            updateOverallStatus();
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeShadowDOM();
+            updateOverallStatus();
+            
+            // Log page load
+            console.log('🧪 SkapAuto Test Suite loaded');
+            console.log('Extension detection will begin when tests are run');
+        });
+
+        // Prevent form submissions from leaving the page
+        document.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('Form submission prevented for testing');
+        });
+    </script>
+</body>
+</html>

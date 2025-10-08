@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SkapAuto Extension - Automated Testing</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.8em;
+            font-weight: 300;
+        }
+
+        .header p {
+            margin: 15px 0 0 0;
+            opacity: 0.9;
+            font-size: 1.2em;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .control-panel {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            height: fit-content;
+        }
+
+        .control-panel h3 {
+            margin-top: 0;
+            color: #495057;
+            border-bottom: 2px solid #dee2e6;
+            padding-bottom: 10px;
+        }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: #212529; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-panel {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .status-panel h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #28a745, #20c997);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        .results-panel {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+
+        .results-header {
+            background: #f8f9fa;
+            padding: 15px;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .results-content {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .test-result {
+            padding: 15px;
+            border-bottom: 1px solid #f1f3f4;
+            transition: background-color 0.2s ease;
+        }
+
+        .test-result:hover {
+            background: #f8f9fa;
+        }
+
+        .test-result:last-child {
+            border-bottom: none;
+        }
+
+        .test-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .test-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: 500;
+        }
+
+        .status-running { background: #fff3cd; color: #856404; }
+        .status-passed { background: #d4edda; color: #155724; }
+        .status-failed { background: #f8d7da; color: #721c24; }
+        .status-pending { background: #e2e3e5; color: #6c757d; }
+
+        .test-details {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .test-metrics {
+            display: flex;
+            gap: 15px;
+            margin-top: 8px;
+            font-size: 0.85em;
+        }
+
+        .metric {
+            color: #495057;
+        }
+
+        .log-panel {
+            background: #1e1e1e;
+            color: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-header {
+            background: #343a40;
+            padding: 10px 15px;
+            border-bottom: 1px solid #495057;
+            font-weight: 500;
+        }
+
+        .log-content {
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+
+        .log-info { color: #17a2b8; }
+        .log-success { color: #28a745; }
+        .log-warning { color: #ffc107; }
+        .log-error { color: #dc3545; }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .summary-card {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            margin: 0;
+            font-size: 2em;
+            font-weight: 300;
+        }
+
+        .summary-card p {
+            margin: 5px 0 0 0;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .card-passed h3 { color: #28a745; }
+        .card-failed h3 { color: #dc3545; }
+        .card-total h3 { color: #007bff; }
+        .card-time h3 { color: #6f42c1; }
+
+        .test-forms {
+            display: none; /* Hidden by default, shown when needed */
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .test-form {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .test-form h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,0.25);
+        }
+
+        .shadow-host {
+            border: 2px dashed #6c757d;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #f8f9fa;
+        }
+
+        .config-section {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+        }
+
+        .config-section h4 {
+            margin: 0 0 15px 0;
+            color: #495057;
+        }
+
+        .config-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .config-input {
+            width: 80px;
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Automated Test Suite</h1>
+            <p>Comprehensive automated testing for SkapAuto extension</p>
+        </div>
+
+        <div class="dashboard">
+            <div class="control-panel">
+                <h3>🎮 Test Controls</h3>
+                
+                <button class="btn btn-primary" id="runAllBtn" onclick="runAllTests()">
+                    🚀 Run All Tests
+                </button>
+                
+                <button class="btn btn-success" id="runPassedBtn" onclick="runPassedTests()">
+                    ✅ Re-run Passed Tests
+                </button>
+                
+                <button class="btn btn-warning" id="runFailedBtn" onclick="runFailedTests()">
+                    ❌ Re-run Failed Tests
+                </button>
+                
+                <button class="btn btn-info" id="runSelectedBtn" onclick="runSelectedTests()">
+                    🎯 Run Selected Tests
+                </button>
+                
+                <button class="btn btn-secondary" id="stopBtn" onclick="stopTests()" disabled>
+                    ⏹️ Stop Tests
+                </button>
+                
+                <button class="btn btn-danger" id="clearBtn" onclick="clearResults()">
+                    🗑️ Clear Results
+                </button>
+
+                <div class="status-panel">
+                    <h4>📊 Test Status</h4>
+                    <div id="testProgress">Ready to start testing</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div id="currentTest">No test running</div>
+                </div>
+
+                <div class="config-section">
+                    <h4>⚙️ Configuration</h4>
+                    <div class="config-row">
+                        <label>Timeout (ms):</label>
+                        <input type="number" class="config-input" id="timeoutConfig" value="10000">
+                    </div>
+                    <div class="config-row">
+                        <label>Retry Count:</label>
+                        <input type="number" class="config-input" id="retryConfig" value="2">
+                    </div>
+                    <div class="config-row">
+                        <label>Delay (ms):</label>
+                        <input type="number" class="config-input" id="delayConfig" value="1000">
+                    </div>
+                </div>
+
+                <div class="status-panel">
+                    <h4>🔍 Extension Status</h4>
+                    <div id="extensionStatus">Checking...</div>
+                </div>
+            </div>
+
+            <div class="results-panel">
+                <div class="results-header">
+                    <h3>📋 Test Results</h3>
+                    <button class="btn btn-info" onclick="toggleTestForms()">
+                        👁️ Show Test Forms
+                    </button>
+                </div>
+                
+                <div class="summary-cards" id="summaryCards">
+                    <div class="summary-card card-total">
+                        <h3 id="totalTests">0</h3>
+                        <p>Total Tests</p>
+                    </div>
+                    <div class="summary-card card-passed">
+                        <h3 id="passedTests">0</h3>
+                        <p>Passed</p>
+                    </div>
+                    <div class="summary-card card-failed">
+                        <h3 id="failedTests">0</h3>
+                        <p>Failed</p>
+                    </div>
+                    <div class="summary-card card-time">
+                        <h3 id="totalTime">0s</h3>
+                        <p>Total Time</p>
+                    </div>
+                </div>
+
+                <div class="results-content" id="resultsContent">
+                    <div style="padding: 40px; text-align: center; color: #6c757d;">
+                        <h4>No tests run yet</h4>
+                        <p>Click "Run All Tests" to start automated testing</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="log-panel">
+            <div class="log-header">
+                📝 Test Execution Log
+                <button style="float: right; background: none; border: none; color: white; cursor: pointer;" onclick="clearLog()">
+                    🗑️ Clear
+                </button>
+            </div>
+            <div class="log-content" id="logContent">
+                <div class="log-entry log-info">Test runner initialized. Ready to start testing.</div>
+            </div>
+        </div>
+
+        <!-- Test Forms (Hidden by default) -->
+        <div class="test-forms" id="testForms">
+            <!-- Basic Login Form -->
+            <div class="test-form" id="test-basic-login">
+                <h4>Basic Login Form</h4>
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" name="username" placeholder="Enter username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" placeholder="Enter password">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Email Login Form -->
+            <div class="test-form" id="test-email-login">
+                <h4>Email Login Form</h4>
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" name="email" placeholder="user@example.com">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" name="password" placeholder="Enter password">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Shadow DOM Form -->
+            <div class="test-form" id="test-shadow-login">
+                <h4>Shadow DOM Login</h4>
+                <div class="shadow-host" id="shadow-host-login"></div>
+            </div>
+
+            <!-- Multiple Forms -->
+            <div class="test-form" id="test-multiple-forms">
+                <h4>Multiple Forms</h4>
+                <form style="margin-bottom: 15px; padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    <h6>Login Form</h6>
+                    <input type="text" class="form-control" name="username" placeholder="Username" style="margin-bottom: 10px;">
+                    <input type="password" class="form-control" name="password" placeholder="Password">
+                </form>
+                <form style="padding: 10px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    <h6>Registration Form</h6>
+                    <input type="email" class="form-control" name="email" placeholder="Email" style="margin-bottom: 10px;">
+                    <input type="password" class="form-control" name="new-password" placeholder="New Password">
+                </form>
+            </div>
+
+            <!-- OTP Fields -->
+            <div class="test-form" id="test-otp-field">
+                <h4>OTP/2FA Fields</h4>
+                <form>
+                    <div class="form-group">
+                        <label class="form-label">OTP Code</label>
+                        <input type="text" class="form-control" name="otp" placeholder="Enter 6-digit code" maxlength="6">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Verification Code</label>
+                        <input type="text" class="form-control" name="verification-code" placeholder="Security code">
+                    </div>
+                </form>
+            </div>
+
+            <!-- Dynamic Form -->
+            <div class="test-form" id="test-dynamic-form">
+                <h4>Dynamic Form</h4>
+                <button class="btn btn-secondary" onclick="createDynamicForm()">Create Dynamic Form</button>
+                <div id="dynamic-form-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include test runner and test cases -->
+    <script src="automated-test-runner.js"></script>
+    <script src="test-cases.js"></script>
+
+    <script>
+        // Global test runner instance
+        let testRunner = null;
+        let isTestFormsVisible = false;
+
+        // Initialize test runner
+        function initializeTestRunner() {
+            testRunner = new SkapAutoTestRunner();
+            
+            // Configure test runner
+            updateConfig();
+            
+            // Register all test cases
+            Object.keys(testCases).forEach(testId => {
+                testRunner.registerTest(testId, testCases[testId]);
+            });
+
+            // Set up event listeners
+            testRunner
+                .on('testRunStarted', onTestRunStarted)
+                .on('testRunCompleted', onTestRunCompleted)
+                .on('testRunFailed', onTestRunFailed)
+                .on('testStarted', onTestStarted)
+                .on('testPassed', onTestPassed)
+                .on('testFailed', onTestFailed)
+                .on('log', onLog);
+
+            updateSummary();
+            checkExtensionStatus();
+        }
+
+        // Event handlers
+        function onTestRunStarted(data) {
+            document.getElementById('runAllBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('testProgress').textContent = `Starting ${data.totalTests} tests...`;
+            document.getElementById('progressFill').style.width = '0%';
+            clearResultsContent();
+        }
+
+        function onTestRunCompleted(summary) {
+            document.getElementById('runAllBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('testProgress').textContent = `Completed: ${summary.passed}/${summary.total} passed`;
+            document.getElementById('progressFill').style.width = '100%';
+            document.getElementById('currentTest').textContent = 'All tests completed';
+            updateSummary(summary);
+        }
+
+        function onTestRunFailed(data) {
+            document.getElementById('runAllBtn').disabled = false;
+            document.getElementById('stopBtn').disabled = true;
+            document.getElementById('testProgress').textContent = `Test run failed: ${data.error}`;
+            document.getElementById('currentTest').textContent = 'Test run stopped';
+        }
+
+        function onTestStarted(data) {
+            document.getElementById('currentTest').textContent = `Running: ${data.testName}`;
+            addTestResult(data.testId, data.testName, 'running');
+        }
+
+        function onTestPassed(data) {
+            updateTestResult(data.testId, 'passed', data.duration, data.attempt);
+            updateProgress();
+        }
+
+        function onTestFailed(data) {
+            updateTestResult(data.testId, 'failed', null, data.attempt, data.error);
+            updateProgress();
+        }
+
+        function onLog(data) {
+            addLogEntry(data.message, data.level);
+        }
+
+        // UI update functions
+        function updateProgress() {
+            if (!testRunner) return;
+            
+            const results = testRunner.testResults;
+            const total = testRunner.testQueue.length;
+            const completed = results.size;
+            const progress = total > 0 ? (completed / total) * 100 : 0;
+            
+            document.getElementById('progressFill').style.width = `${progress}%`;
+            document.getElementById('testProgress').textContent = `Progress: ${completed}/${total} tests`;
+        }
+
+        function updateSummary(summary = null) {
+            if (!summary && testRunner) {
+                summary = testRunner.generateSummary();
+            }
+            
+            if (summary) {
+                document.getElementById('totalTests').textContent = summary.total;
+                document.getElementById('passedTests').textContent = summary.passed;
+                document.getElementById('failedTests').textContent = summary.failed;
+                document.getElementById('totalTime').textContent = `${(summary.totalDuration / 1000).toFixed(1)}s`;
+            }
+        }
+
+        function addTestResult(testId, testName, status, duration = null, attempt = null, error = null) {
+            const resultsContent = document.getElementById('resultsContent');
+            
+            // Remove placeholder if it exists
+            if (resultsContent.querySelector('h4')) {
+                resultsContent.innerHTML = '';
+            }
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'test-result';
+            resultDiv.id = `result-${testId}`;
+            
+            resultDiv.innerHTML = `
+                <div class="test-name">
+                    ${testName}
+                    <span class="test-status status-${status}">${status.toUpperCase()}</span>
+                </div>
+                <div class="test-details" id="details-${testId}">
+                    ${error ? `Error: ${error}` : 'Running test...'}
+                </div>
+                <div class="test-metrics" id="metrics-${testId}">
+                    ${duration ? `Duration: ${duration}ms` : ''}
+                    ${attempt ? `Attempt: ${attempt}` : ''}
+                </div>
+            `;
+            
+            resultsContent.appendChild(resultDiv);
+            resultsContent.scrollTop = resultsContent.scrollHeight;
+        }
+
+        function updateTestResult(testId, status, duration = null, attempt = null, error = null) {
+            const resultDiv = document.getElementById(`result-${testId}`);
+            if (!resultDiv) return;
+            
+            const statusSpan = resultDiv.querySelector('.test-status');
+            const detailsDiv = document.getElementById(`details-${testId}`);
+            const metricsDiv = document.getElementById(`metrics-${testId}`);
+            
+            statusSpan.className = `test-status status-${status}`;
+            statusSpan.textContent = status.toUpperCase();
+            
+            if (status === 'passed') {
+                detailsDiv.textContent = 'Test completed successfully';
+                metricsDiv.innerHTML = `Duration: ${duration}ms | Attempt: ${attempt}`;
+            } else if (status === 'failed') {
+                detailsDiv.textContent = `Error: ${error}`;
+                metricsDiv.innerHTML = `Failed after ${attempt} attempt(s)`;
+            }
+        }
+
+        function clearResultsContent() {
+            const resultsContent = document.getElementById('resultsContent');
+            resultsContent.innerHTML = '';
+        }
+
+        function addLogEntry(message, level) {
+            const logContent = document.getElementById('logContent');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${level}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            
+            logContent.appendChild(logEntry);
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('logContent').innerHTML = '';
+        }
+
+        // Configuration
+        function updateConfig() {
+            if (!testRunner) return;
+            
+            testRunner.config.timeout = parseInt(document.getElementById('timeoutConfig').value);
+            testRunner.config.retryCount = parseInt(document.getElementById('retryConfig').value);
+            testRunner.config.delayBetweenTests = parseInt(document.getElementById('delayConfig').value);
+        }
+
+        // Test control functions
+        async function runAllTests() {
+            if (!testRunner) return;
+            
+            updateConfig();
+            try {
+                await testRunner.runAllTests();
+            } catch (error) {
+                addLogEntry(`Test run failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runPassedTests() {
+            if (!testRunner) return;
+            
+            const passedTestIds = Array.from(testRunner.testResults.entries())
+                .filter(([id, result]) => result.status === 'passed')
+                .map(([id]) => id);
+            
+            if (passedTestIds.length === 0) {
+                addLogEntry('No passed tests to re-run', 'warning');
+                return;
+            }
+            
+            // Create temporary test runner with only passed tests
+            const tempRunner = new SkapAutoTestRunner();
+            passedTestIds.forEach(testId => {
+                tempRunner.registerTest(testId, testCases[testId]);
+            });
+            
+            try {
+                await tempRunner.runAllTests();
+            } catch (error) {
+                addLogEntry(`Failed test re-run failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFailedTests() {
+            if (!testRunner) return;
+            
+            const failedTestIds = Array.from(testRunner.testResults.entries())
+                .filter(([id, result]) => result.status === 'failed')
+                .map(([id]) => id);
+            
+            if (failedTestIds.length === 0) {
+                addLogEntry('No failed tests to re-run', 'warning');
+                return;
+            }
+            
+            // Create temporary test runner with only failed tests
+            const tempRunner = new SkapAutoTestRunner();
+            failedTestIds.forEach(testId => {
+                tempRunner.registerTest(testId, testCases[testId]);
+            });
+            
+            try {
+                await tempRunner.runAllTests();
+            } catch (error) {
+                addLogEntry(`Failed test re-run failed: ${error.message}`, 'error');
+            }
+        }
+
+        function runSelectedTests() {
+            // TODO: Implement test selection UI
+            addLogEntry('Test selection UI not implemented yet', 'warning');
+        }
+
+        function stopTests() {
+            if (testRunner) {
+                testRunner.isRunning = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('runAllBtn').disabled = false;
+                addLogEntry('Test run stopped by user', 'warning');
+            }
+        }
+
+        function clearResults() {
+            if (testRunner) {
+                testRunner.testResults.clear();
+            }
+            clearResultsContent();
+            updateSummary({ total: 0, passed: 0, failed: 0, totalDuration: 0 });
+            document.getElementById('testProgress').textContent = 'Ready to start testing';
+            document.getElementById('currentTest').textContent = 'No test running';
+            document.getElementById('progressFill').style.width = '0%';
+            addLogEntry('Results cleared', 'info');
+        }
+
+        // Extension status check
+        function checkExtensionStatus() {
+            const hasSkrapElements = document.querySelectorAll('[data-skap-adorned]').length > 0;
+            const hasSkrapIcons = document.querySelectorAll('.skap-icon').length > 0;
+            const hasSkrapStyles = document.querySelector('style[data-skap]') !== null;
+            
+            const statusDiv = document.getElementById('extensionStatus');
+            
+            if (hasSkrapElements || hasSkrapIcons || hasSkrapStyles) {
+                statusDiv.innerHTML = '✅ Extension detected';
+                statusDiv.style.color = '#28a745';
+            } else {
+                statusDiv.innerHTML = '❌ Extension not detected';
+                statusDiv.style.color = '#dc3545';
+            }
+            
+            // Check again in 2 seconds
+            setTimeout(checkExtensionStatus, 2000);
+        }
+
+        // Test forms management
+        function toggleTestForms() {
+            const testForms = document.getElementById('testForms');
+            isTestFormsVisible = !isTestFormsVisible;
+            
+            if (isTestFormsVisible) {
+                testForms.style.display = 'grid';
+                initializeShadowDOM();
+            } else {
+                testForms.style.display = 'none';
+            }
+        }
+
+        function initializeShadowDOM() {
+            const shadowHost = document.getElementById('shadow-host-login');
+            if (shadowHost && !shadowHost.shadowRoot) {
+                const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
+                shadowRoot.innerHTML = `
+                    <style>
+                        .shadow-form { padding: 15px; }
+                        .shadow-input { 
+                            width: 100%; 
+                            padding: 8px; 
+                            margin: 5px 0; 
+                            border: 1px solid #ccc; 
+                            border-radius: 4px; 
+                        }
+                    </style>
+                    <form class="shadow-form">
+                        <input type="text" class="shadow-input" name="username" placeholder="Shadow Username">
+                        <input type="password" class="shadow-input" name="password" placeholder="Shadow Password">
+                    </form>
+                `;
+            }
+        }
+
+        function createDynamicForm() {
+            const container = document.getElementById('dynamic-form-container');
+            container.innerHTML = `
+                <form style="margin-top: 15px; padding: 15px; border: 1px solid #dee2e6; border-radius: 4px;">
+                    <div class="form-group">
+                        <label class="form-label">Dynamic Username</label>
+                        <input type="text" class="form-control" name="dynamic-username" placeholder="Dynamic username">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Dynamic Password</label>
+                        <input type="password" class="form-control" name="dynamic-password" placeholder="Dynamic password">
+                    </div>
+                </form>
+            `;
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeTestRunner();
+            addLogEntry('Automated test suite initialized', 'success');
+        });
+
+        // Prevent form submissions
+        document.addEventListener('submit', function(e) {
+            e.preventDefault();
+        });
+    </script>
+</body>
+</html>

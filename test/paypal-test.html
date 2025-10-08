@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PayPal Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .login-form {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .btn {
+            background-color: #0070ba;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #005ea6;
+        }
+        .paypal-logo {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #0070ba;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-form">
+        <div class="paypal-logo">PayPal</div>
+        <form>
+            <div class="form-group">
+                <label for="email">Email or mobile number</label>
+                <input type="email" id="email" name="login_email" placeholder="Email or mobile number" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <!-- This is the problematic field that was being detected as both TOTP and password -->
+                <input id="password" 
+                       name="login_password" 
+                       type="password" 
+                       class="hasHelp validateEmpty pin-password" 
+                       required="required" 
+                       value="" 
+                       placeholder="Password" 
+                       aria-describedby="passwordErrorMessage">
+            </div>
+            <button type="submit" class="btn">Log In</button>
+        </form>
+    </div>
+
+    <script>
+        // Simulate PayPal domain for testing
+        console.log('Testing PayPal field detection on:', window.location.hostname);
+        console.log('Password field element:', document.getElementById('password'));
+    </script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reddit Shadow DOM Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #ff4500;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #e03d00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Reddit Shadow DOM Test</h2>
+        <p>This page simulates Reddit's nested Shadow DOM structure with login forms.</p>
+        
+        <!-- This will contain the Shadow DOM structure -->
+        <div id="reddit-app"></div>
+    </div>
+
+    <script>
+        // Create nested Shadow DOM structure similar to Reddit
+        const redditApp = document.getElementById('reddit-app');
+        
+        // First level Shadow DOM
+        const shadow1 = redditApp.attachShadow({ mode: 'open' });
+        shadow1.innerHTML = `
+            <div class="bg-ui-modalbackground max-w-full flex flex-col basis-full font-sans pointer-events-auto">
+                <div class="flex justify-between items-end pt-lg pb-xs px-[var(--topbar-horizontal-padding)]">
+                    <div class="inline-flex items-center gap-md">
+                        <slot name="backButton"></slot>
+                        <slot name="titleGraphic"></slot>
+                    </div>
+                    <slot name="closeButton"></slot>
+                </div>
+                <slot name="title" class="inline-flex py-0 px-[var(--horizontal-padding)]"></slot>
+                <slot name="subtitle" class="inline-flex py-0 px-[var(--horizontal-padding)]"></slot>
+                <div class="flex flex-col grow shrink overflow-y-auto py-0 px-[var(--horizontal-padding)] border-0 border-solid border-neutral-border border-t-sm border-b-sm">
+                    <div id="login-container"></div>
+                </div>
+                <slot name="primaryButton" class="inline-flex"></slot>
+            </div>
+        `;
+        
+        // Second level Shadow DOM
+        const loginContainer = shadow1.getElementById('login-container');
+        const shadow2 = loginContainer.attachShadow({ mode: 'open' });
+        shadow2.innerHTML = `
+            <div class="login-form-wrapper">
+                <div id="form-host"></div>
+            </div>
+        `;
+        
+        // Third level Shadow DOM with actual form
+        const formHost = shadow2.getElementById('form-host');
+        const shadow3 = formHost.attachShadow({ mode: 'open' });
+        shadow3.innerHTML = `
+            <style>
+                .form-group {
+                    margin-bottom: 15px;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                }
+                input {
+                    width: 100%;
+                    padding: 10px;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    box-sizing: border-box;
+                }
+                button {
+                    width: 100%;
+                    padding: 12px;
+                    background-color: #ff4500;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    cursor: pointer;
+                }
+            </style>
+            <form id="reddit-login-form">
+                <div class="form-group">
+                    <label for="username">Username or Email</label>
+                    <input type="text" id="username" name="username" placeholder="Enter your username or email" autocomplete="username">
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="totp">Two-Factor Authentication Code (if enabled)</label>
+                    <input type="text" id="totp" name="totp" placeholder="Enter 6-digit code" autocomplete="one-time-code" maxlength="6">
+                </div>
+                <button type="submit">Log In</button>
+            </form>
+        `;
+        
+        // Add form submission handler
+        const form = shadow3.getElementById('reddit-login-form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            alert('Form submitted! (This is just a test)');
+        });
+        
+        console.log('Reddit Shadow DOM test structure created');
+        console.log('Shadow DOM levels:', {
+            level1: shadow1,
+            level2: shadow2,
+            level3: shadow3
+        });
+    </script>
+</body>
+</html>

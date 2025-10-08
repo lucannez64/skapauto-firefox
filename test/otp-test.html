@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OTP Autofill Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .form-container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        input:focus {
+            border-color: #4CAF50;
+            outline: none;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .test-info {
+            background-color: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .test-info h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <h3>🔐 OTP Autofill Button Test</h3>
+        <p>This page tests the OTP autofill button functionality. The extension should:</p>
+        <ul>
+            <li>Show a 🔐 icon next to OTP fields (instead of 🔑)</li>
+            <li>Display an OTP mini-bar when clicking the OTP icon</li>
+            <li>Allow selecting and filling OTP codes from credentials</li>
+        </ul>
+        <p><strong>Note:</strong> Make sure you have credentials with OTP codes saved in the extension.</p>
+    </div>
+
+    <div class="form-container">
+        <h2>Login Form with OTP</h2>
+        <form>
+            <div class="form-group">
+                <label for="username">Username:</label>
+                <input type="text" id="username" name="username" placeholder="Enter your username">
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" placeholder="Enter your password">
+            </div>
+            
+            <div class="form-group">
+                <label for="otp-code">OTP Code:</label>
+                <input type="text" id="otp-code" name="otp" placeholder="Enter 6-digit verification code">
+            </div>
+            
+            <button type="submit">Login</button>
+        </form>
+    </div>
+
+    <div class="form-container">
+        <h2>Two-Factor Authentication</h2>
+        <form>
+            <div class="form-group">
+                <label for="verification-code">Verification Code:</label>
+                <input type="text" id="verification-code" name="verification_code" placeholder="Enter verification code">
+            </div>
+            
+            <div class="form-group">
+                <label for="security-code">Security Code:</label>
+                <input type="text" id="security-code" name="security_code" placeholder="Enter security code">
+            </div>
+            
+            <button type="submit">Verify</button>
+        </form>
+    </div>
+
+    <div class="form-container">
+        <h2>MFA Authentication</h2>
+        <form>
+            <div class="form-group">
+                <label for="mfa-token">MFA Token:</label>
+                <input type="text" id="mfa-token" name="mfa_code" placeholder="Enter MFA token">
+            </div>
+            
+            <div class="form-group">
+                <label for="totp-code">TOTP Code:</label>
+                <input type="text" id="totp-code" name="totp" placeholder="Enter TOTP code">
+            </div>
+            
+            <div class="form-group">
+                <label for="auth-pin">Authentication PIN:</label>
+                <input type="text" id="auth-pin" name="pin" placeholder="Enter PIN">
+            </div>
+            
+            <button type="submit">Authenticate</button>
+        </form>
+    </div>
+
+    <div class="form-container">
+        <h2>Mixed Form (Username + OTP)</h2>
+        <form>
+            <div class="form-group">
+                <label for="email">Email:</label>
+                <input type="email" id="email" name="email" placeholder="Enter your email">
+            </div>
+            
+            <div class="form-group">
+                <label for="two-factor">Two-Factor Code:</label>
+                <input type="text" id="two-factor" name="two_factor_code" placeholder="Enter 6-digit code">
+            </div>
+            
+            <button type="submit">Continue</button>
+        </form>
+    </div>
+
+    <script>
+        // Prevent actual form submission for testing
+        document.querySelectorAll('form').forEach(form => {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                alert('Form submission prevented for testing purposes');
+            });
+        });
+
+        // Log field focus for debugging
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', () => {
+                console.log(`Field focused: ${input.name || input.id} (type: ${input.type})`);
+            });
+        });
+    </script>
+</body>
+</html>

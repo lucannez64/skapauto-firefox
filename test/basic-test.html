@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Extension Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .test-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        .console-output {
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Basic Extension Test</h1>
+    <p>This page tests if the SkapAuto extension is loading and working.</p>
+    
+    <h3>Test Fields:</h3>
+    <input type="email" class="test-input" placeholder="Email field" autocomplete="email">
+    <input type="password" class="test-input" placeholder="Password field" autocomplete="current-password">
+    <input type="text" class="test-input" placeholder="Username field" autocomplete="username">
+    
+    <h3>Console Output:</h3>
+    <div id="console-output" class="console-output">Waiting for console messages...</div>
+    
+    <script>
+        // Capture console messages
+        const consoleOutput = document.getElementById('console-output');
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        let messages = [];
+        
+        function addMessage(type, ...args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = `[${timestamp}] ${type.toUpperCase()}: ${args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ')}`;
+            
+            messages.push(message);
+            consoleOutput.textContent = messages.join('\n');
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            addMessage('log', ...args);
+            originalLog.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            addMessage('error', ...args);
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            addMessage('warn', ...args);
+            originalWarn.apply(console, args);
+        };
+        
+        // Test message
+        console.log('🧪 Basic test page loaded');
+        
+        // Check for extension activity every second
+        let checkCount = 0;
+        const checkInterval = setInterval(() => {
+            checkCount++;
+            console.log(`🔍 Extension check ${checkCount} - Looking for extension activity...`);
+            
+            // Look for extension-added attributes
+            const adornedInputs = document.querySelectorAll('input[data-skap-adorned]');
+            if (adornedInputs.length > 0) {
+                console.log(`✅ Extension detected! Found ${adornedInputs.length} adorned inputs`);
+                clearInterval(checkInterval);
+            }
+            
+            if (checkCount >= 15) {
+                console.log('❌ Extension not detected after 15 seconds');
+                clearInterval(checkInterval);
+            }
+        }, 1000);
+        
+        // Also check DOM mutations
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'data-skap-adorned') {
+                    console.log('🎯 Extension activity detected: data-skap-adorned attribute added');
+                }
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === Node.ELEMENT_NODE && node.classList && node.classList.contains('skap-icon')) {
+                            console.log('🎯 Extension activity detected: skap-icon element added');
+                        }
+                    });
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-skap-adorned']
+        });
+    </script>
+</body>
+</html>

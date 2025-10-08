@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Loading Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+        .regular-dom {
+            border-color: #4CAF50;
+        }
+        .shadow-dom {
+            border-color: #2196F3;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 15px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SkapAuto Extension Test</h1>
+        
+        <div id="extension-status" class="status info">
+            Checking extension status...
+        </div>
+        
+        <!-- Regular DOM Test -->
+        <div class="test-section regular-dom">
+            <h3>Regular DOM Test</h3>
+            <p>These fields should get autofill icons if the extension is working:</p>
+            
+            <label for="reg-email">Email:</label>
+            <input type="email" id="reg-email" name="email" placeholder="Enter your email" autocomplete="email">
+            
+            <label for="reg-password">Password:</label>
+            <input type="password" id="reg-password" name="password" placeholder="Enter your password" autocomplete="current-password">
+            
+            <label for="reg-username">Username:</label>
+            <input type="text" id="reg-username" name="username" placeholder="Enter your username" autocomplete="username">
+        </div>
+        
+        <!-- Shadow DOM Test -->
+        <div class="test-section shadow-dom">
+            <h3>Shadow DOM Test</h3>
+            <p>These fields are inside Shadow DOM and should also get autofill icons:</p>
+            <div id="shadow-host"></div>
+        </div>
+        
+        <div id="test-results"></div>
+    </div>
+
+    <script>
+        // Create Shadow DOM
+        const shadowHost = document.getElementById('shadow-host');
+        const shadow = shadowHost.attachShadow({ mode: 'open' });
+        
+        shadow.innerHTML = `
+            <style>
+                input {
+                    width: 100%;
+                    padding: 10px;
+                    margin: 5px 0 15px 0;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    font-size: 16px;
+                    box-sizing: border-box;
+                }
+                label {
+                    display: block;
+                    margin-bottom: 5px;
+                    font-weight: bold;
+                }
+            </style>
+            <label for="shadow-email">Email:</label>
+            <input type="email" id="shadow-email" name="email" placeholder="Enter your email" autocomplete="email">
+            
+            <label for="shadow-password">Password:</label>
+            <input type="password" id="shadow-password" name="password" placeholder="Enter your password" autocomplete="current-password">
+            
+            <label for="shadow-username">Username:</label>
+            <input type="text" id="shadow-username" name="username" placeholder="Enter your username" autocomplete="username">
+        `;
+        
+        console.log('🧪 Test page loaded');
+        console.log('🧪 Regular DOM inputs:', document.querySelectorAll('input').length);
+        console.log('🧪 Shadow DOM inputs:', shadow.querySelectorAll('input').length);
+        console.log('🧪 Shadow DOM created:', shadow);
+        
+        // Check for extension activity
+        let extensionDetected = false;
+        let checkCount = 0;
+        const maxChecks = 10;
+        
+        function checkExtensionActivity() {
+            checkCount++;
+            console.log(`🧪 Extension check ${checkCount}/${maxChecks}`);
+            
+            // Look for extension-added attributes or elements
+            const regularInputs = document.querySelectorAll('input[data-skap-adorned]');
+            const shadowInputs = shadow.querySelectorAll('input[data-skap-adorned]');
+            
+            const statusDiv = document.getElementById('extension-status');
+            const resultsDiv = document.getElementById('test-results');
+            
+            if (regularInputs.length > 0 || shadowInputs.length > 0) {
+                extensionDetected = true;
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Extension is working!';
+                
+                resultsDiv.innerHTML = `
+                    <div class="status success">
+                        <h4>Extension Activity Detected:</h4>
+                        <ul>
+                            <li>Regular DOM fields with icons: ${regularInputs.length}</li>
+                            <li>Shadow DOM fields with icons: ${shadowInputs.length}</li>
+                        </ul>
+                    </div>
+                `;
+                return;
+            }
+            
+            if (checkCount >= maxChecks) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Extension not detected after 10 seconds';
+                
+                resultsDiv.innerHTML = `
+                    <div class="status error">
+                        <h4>Extension Issues:</h4>
+                        <ul>
+                            <li>No autofill icons found on regular DOM fields</li>
+                            <li>No autofill icons found on Shadow DOM fields</li>
+                            <li>Check browser console for errors</li>
+                            <li>Verify extension is installed and enabled</li>
+                        </ul>
+                    </div>
+                `;
+                return;
+            }
+            
+            statusDiv.textContent = `⏳ Checking extension activity... (${checkCount}/${maxChecks})`;
+            setTimeout(checkExtensionActivity, 1000);
+        }
+        
+        // Start checking after a short delay
+        setTimeout(checkExtensionActivity, 1000);
+        
+        // Also check for console messages from the extension
+        const originalLog = console.log;
+        console.log = function(...args) {
+            if (args.some(arg => typeof arg === 'string' && arg.includes('SkapAuto'))) {
+                console.log('🧪 Extension console activity detected:', ...args);
+            }
+            originalLog.apply(console, args);
+        };
+    </script>
+</body>
+</html>
