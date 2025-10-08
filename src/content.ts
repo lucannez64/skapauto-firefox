@@ -434,9 +434,41 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const id = element.id.toLowerCase();
   const name = element.name.toLowerCase();
   const className = element.className.toLowerCase();
+  const placeholder = element.placeholder.toLowerCase();
 
   // Utiliser la configuration existante pour identifier les champs
   const config = siteConfig.whiteList.fields;
+
+  // Termes d'email à rechercher dans le placeholder
+  const emailPlaceholderTerms = [
+    'email',
+    'e-mail',
+    'mail',
+    'courriel',
+    '@',
+    'example@',
+    'user@',
+    'your@',
+    'votre@',
+    'adresse',
+    'address'
+  ];
+
+  // Termes de nom d'utilisateur à rechercher dans le placeholder
+  const usernamePlaceholderTerms = [
+    'username',
+    'user name',
+    'nom d\'utilisateur',
+    'utilisateur',
+    'login',
+    'identifiant',
+    'name',
+    'nom'
+  ];
+
+  // Vérification du placeholder pour les champs email/nom
+  const isEmailPlaceholder = emailPlaceholderTerms.some(term => placeholder.includes(term));
+  const isUsernamePlaceholder = usernamePlaceholderTerms.some(term => placeholder.includes(term));
 
   return (
     config.usernameNames.some(n => name.includes(n)) ||
@@ -446,7 +478,9 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
     config.passwordNames.some(n => name.includes(n)) ||
     config.passwordIds.some(i => id.includes(i)) ||
     config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i))
+    config.otpIds.some(i => id.includes(i)) ||
+    isEmailPlaceholder ||
+    isUsernamePlaceholder
   );
 }
 
