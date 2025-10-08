@@ -348,12 +348,12 @@ fileInput.addEventListener('change', (event) => {
   if (input.files && input.files.length > 0) {
     const file = input.files[0];
     const reader = new FileReader();
-    
+
     reader.onload = (e) => {
       if (e.target && e.target.result) {
         // Extraire les données en base64
         const base64Data = e.target.result.toString().split(',')[1];
-        
+
         // Envoyer les données directement au background script
         browser.runtime.sendMessage({
           action: 'fileSelected',
@@ -364,10 +364,10 @@ fileInput.addEventListener('change', (event) => {
         });
       }
     };
-    
+
     reader.readAsDataURL(file);
   }
-  
+
   document.body.removeChild(fileInput);
 });
 
@@ -379,7 +379,7 @@ fileInput.addEventListener('change', (event) => {
 
     // Observers to attach adorners for dynamic UIs
     setupMutationObserver();
-    
+
     // Configurer la détection de soumission de formulaire pour sauvegarder les identifiants
     setupFormSubmissionDetection();
 
@@ -396,16 +396,16 @@ function attachInlineIcons(root: ParentNode = document): void {
   const inputs = root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
     'input[type="text"], input[type="email"], input[type="password"], input:not([type]), textarea'
   );
-  
+
   inputs.forEach((el) => {
     if (!isVisibleElement(el as HTMLElement)) return;
     if (el.hasAttribute('data-skap-adorned')) return; // Éviter les doublons
-    
+
     const typeAttr = (el.getAttribute('type') || '').toLowerCase();
     if (typeAttr === 'checkbox' || typeAttr === 'radio' || typeAttr === 'file' || typeAttr === 'submit' || typeAttr === 'button') return;
-    
+
     const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
-    
+
     // Préférer seulement les champs candidats de connexion
     const isCandidate =
       typeAttr === 'password' ||
@@ -414,11 +414,11 @@ function attachInlineIcons(root: ParentNode = document): void {
       ac === 'current-password' ||
       ac === 'new-password' ||
       isFieldCandidate(el);
-    
+
     if (isCandidate) {
       attachFieldIcon(el);
       el.setAttribute('data-skap-adorned', 'true');
-      
+
       // Ajouter les événements de focus
       el.addEventListener('focus', () => {
         lastFocusedField = el;
@@ -434,10 +434,10 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const id = element.id.toLowerCase();
   const name = element.name.toLowerCase();
   const className = element.className.toLowerCase();
-  
+
   // Utiliser la configuration existante pour identifier les champs
   const config = siteConfig.whiteList.fields;
-  
+
   return (
     config.usernameNames.some(n => name.includes(n)) ||
     config.usernameIds.some(i => id.includes(i)) ||
@@ -458,7 +458,7 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
   const icon = document.createElement('div');
   icon.className = 'skap-field-icon';
   icon.innerHTML = '🔑'; // Icône simple, peut être remplacée par SVG
-  
+
   // Styles pour l'icône
   Object.assign(icon.style, {
     position: 'absolute',
@@ -478,13 +478,13 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     border: '1px solid #ccc',
     userSelect: 'none'
   });
-  
+
   // Positionner le champ parent en relatif si nécessaire
   const fieldStyle = window.getComputedStyle(field);
   if (fieldStyle.position === 'static') {
     field.style.position = 'relative';
   }
-  
+
   // Créer un conteneur si nécessaire
   let container = field.parentElement;
   if (!container || container.style.position !== 'relative') {
@@ -492,50 +492,50 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     container.style.position = 'relative';
     container.style.display = 'inline-block';
     container.style.width = '100%';
-    
+
     field.parentNode?.insertBefore(container, field);
     container.appendChild(field);
   }
-  
+
   // Ajouter l'icône au conteneur
   container.appendChild(icon);
   inlineButtons.add(icon);
-  
+
   // Rendre l'icône focusable pour éviter qu'elle disparaisse lors du clic
   icon.setAttribute('tabindex', '0');
-  
+
   // Variable pour suivre l'état d'interaction
   let isInteracting = false;
-  
+
   // Événement de clic sur l'icône
   icon.addEventListener('mousedown', (e) => {
     e.preventDefault();
     e.stopPropagation();
     isInteracting = true;
   });
-  
+
   icon.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Fermer le popup actuel s'il existe
     if (activePopup) {
       activePopup.remove();
       activePopup = null;
     }
-    
+
     // Récupérer les identifiants correspondants
     const credentials = await getMatchingCredentialsByETld();
-    
+
     // Afficher le popup de sélection
     showCredentialPopup(icon, credentials, field);
-    
+
     // Réinitialiser l'état d'interaction après un délai
     setTimeout(() => {
       isInteracting = false;
     }, 200);
   });
-  
+
   // Masquer l'icône quand le champ perd le focus (avec délai et vérifications)
   field.addEventListener('blur', () => {
     setTimeout(() => {
@@ -545,13 +545,13 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
       }
     }, 150);
   });
-  
+
   // Afficher l'icône quand le champ gagne le focus
   field.addEventListener('focus', () => {
     icon.style.display = 'flex';
     lastFocusedField = field;
   });
-  
+
   // Initialement masquer l'icône
   icon.style.display = 'none';
 }
@@ -564,20 +564,22 @@ async function getMatchingCredentialsByETld(): Promise<Credential[]> {
     const response = await browser.runtime.sendMessage({ action: 'getPasswords' });
     console.log(response);
     if (response.success && response.passwords) {
-      const currentUrl = window.location.href;
       const currentHostname = window.location.hostname;
-      console.log(response);
       // Filtrer les identifiants qui correspondent au domaine actuel
-      return response.passwords.filter((cred: Credential) => {
+      console.log(currentHostname);
+      const t = response.passwords.filter((cred: Credential) => {
+        console.log(cred.url);
         if (!cred.url) return false;
         try {
-          const credDomain = new URL(cred.url).hostname;
+          const credDomain = cred.url;
           console.log(cred.url);
-          return credDomain === currentHostname || currentHostname.endsWith('.' + credDomain) || currentHostname.endsWith(cred.url) || currentHostname.endsWith(credDomain);
+          return credDomain === currentHostname || currentHostname.endsWith('.' + credDomain);
         } catch {
           return false;
         }
       });
+      console.log(t);
+      return t;
     }
     return [];
   } catch (error) {
@@ -595,11 +597,11 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
     activePopup.remove();
     activePopup = null;
   }
-  
+
   // Créer le popup
   const popup = document.createElement('div');
   popup.className = 'skap-credential-popup';
-  
+
   // Styles du popup
   Object.assign(popup.style, {
     position: 'absolute',
@@ -615,12 +617,12 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
     fontFamily: 'Arial, sans-serif',
     fontSize: '14px'
   });
-  
+
   // Positionner le popup près de l'ancre
   const anchorRect = anchor.getBoundingClientRect();
   popup.style.top = (anchorRect.bottom + window.scrollY + 5) + 'px';
   popup.style.left = (anchorRect.left + window.scrollX) + 'px';
-  
+
   // Contenu du popup
   if (credentials.length === 0) {
     const noCredsDiv = document.createElement('div');
@@ -638,12 +640,12 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
     header.style.fontWeight = 'bold';
     header.style.backgroundColor = '#f8f9fa';
     popup.appendChild(header);
-    
+
     // Liste des identifiants
     credentials.forEach((cred, index) => {
       const item = document.createElement('div');
       item.className = 'skap-credential-item';
-      
+
       Object.assign(item.style, {
         padding: '10px 12px',
         cursor: 'pointer',
@@ -652,7 +654,7 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
         alignItems: 'center',
         gap: '8px'
       });
-      
+
       // Favicon
       const favicon = document.createElement('img');
       favicon.src = cred.favicon || getFaviconUrl(cred.url || '');
@@ -662,57 +664,57 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
       favicon.onerror = () => {
         favicon.style.display = 'none';
       };
-      
+
       // Informations de l'identifiant
       const info = document.createElement('div');
       info.style.flex = '1';
       info.style.overflow = 'hidden';
-      
+
       const username = document.createElement('div');
       username.textContent = cred.username;
       username.style.fontWeight = '500';
       username.style.whiteSpace = 'nowrap';
       username.style.overflow = 'hidden';
       username.style.textOverflow = 'ellipsis';
-      
+
       const description = document.createElement('div');
-      description.textContent = cred.description || new URL(cred.url || '').hostname;
+      description.textContent = cred.description || cred.url;
       description.style.fontSize = '12px';
       description.style.color = '#666';
       description.style.whiteSpace = 'nowrap';
       description.style.overflow = 'hidden';
       description.style.textOverflow = 'ellipsis';
-      
+
       info.appendChild(username);
       info.appendChild(description);
-      
+
       item.appendChild(favicon);
       item.appendChild(info);
-      
+
       // Événements de survol
       item.addEventListener('mouseenter', () => {
         item.style.backgroundColor = '#f0f0f0';
       });
-      
+
       item.addEventListener('mouseleave', () => {
         item.style.backgroundColor = 'transparent';
       });
-      
+
       // Événement de clic
       item.addEventListener('click', () => {
         fillCredentialIntoForm(cred, targetField);
         popup.remove();
         activePopup = null;
       });
-      
+
       popup.appendChild(item);
     });
   }
-  
+
   // Ajouter le popup au document
   document.body.appendChild(popup);
   activePopup = popup;
-  
+
   // Fermer le popup en cliquant à l'extérieur
   setTimeout(() => {
     const closeHandler = (e: Event) => {
@@ -731,22 +733,30 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
  */
 function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputElement | HTMLTextAreaElement): void {
   const fields = detectAutofillFields();
-  
+
   // Remplir le champ de nom d'utilisateur
   let usernameField: HTMLInputElement | null = null;
-  
+  if (targetField.type === "password") {
+    targetField.value = credential.password;
+    targetField.dispatchEvent(new Event('input', { bubbles: true }));
+    targetField.dispatchEvent(new Event('change', { bubbles: true }));
+  } else if (targetField.type === "name" || targetField.type === "email") {
+    targetField.value = credential.username;
+    targetField.dispatchEvent(new Event('input', { bubbles: true }));
+    targetField.dispatchEvent(new Event('change', { bubbles: true }));
+  }
   if (fields.some(f => f.type === "name")) {
     usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
   } else if (fields.some(f => f.type === "email")) {
     usernameField = fields.find(f => f.type === "email")?.element as HTMLInputElement;
   }
-  
+
   if (usernameField) {
     usernameField.value = credential.username;
     usernameField.dispatchEvent(new Event('input', { bubbles: true }));
     usernameField.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  
+
   // Remplir le champ de mot de passe
   const passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
   if (passwordField) {
@@ -754,7 +764,7 @@ function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputEl
     passwordField.dispatchEvent(new Event('input', { bubbles: true }));
     passwordField.dispatchEvent(new Event('change', { bubbles: true }));
   }
-  
+
   // Si le champ cible est un champ OTP et que l'identifiant a un OTP
   if (targetField.type === 'text' && credential.otp && isOTPField(targetField)) {
     generateTOTPCode(credential.otp).then(otpCode => {
@@ -765,7 +775,7 @@ function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputEl
       }
     });
   }
-  
+
   console.log('Identifiants remplis automatiquement');
 }
 
@@ -778,11 +788,11 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
   if (existingMiniBar) {
     existingMiniBar.remove();
   }
-  
+
   // Créer la mini-barre
   const miniBar = document.createElement('div');
   miniBar.className = 'skap-otp-minibar';
-  
+
   // Styles de la mini-barre
   Object.assign(miniBar.style, {
     position: 'absolute',
@@ -800,31 +810,31 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
     minWidth: '200px'
   });
-  
+
   // Positionner la mini-barre près du champ
   const fieldRect = targetField.getBoundingClientRect();
   miniBar.style.top = (fieldRect.bottom + window.scrollY + 5) + 'px';
   miniBar.style.left = (fieldRect.left + window.scrollX) + 'px';
-  
+
   // Icône OTP
   const otpIcon = document.createElement('span');
   otpIcon.textContent = '🔐';
   otpIcon.style.fontSize = '14px';
-  
+
   // Texte informatif
   const infoText = document.createElement('span');
   infoText.textContent = 'Codes OTP disponibles:';
   infoText.style.flex = '1';
-  
+
   miniBar.appendChild(otpIcon);
   miniBar.appendChild(infoText);
-  
+
   // Boutons pour chaque identifiant avec OTP
   credentials.forEach((cred, index) => {
     if (cred.otp) {
       const otpButton = document.createElement('button');
       otpButton.textContent = cred.username.substring(0, 8) + (cred.username.length > 8 ? '...' : '');
-      
+
       Object.assign(otpButton.style, {
         backgroundColor: '#4299e1',
         color: 'white',
@@ -835,16 +845,16 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
         cursor: 'pointer',
         marginLeft: '4px'
       });
-      
+
       // Événements de survol
       otpButton.addEventListener('mouseenter', () => {
         otpButton.style.backgroundColor = '#3182ce';
       });
-      
+
       otpButton.addEventListener('mouseleave', () => {
         otpButton.style.backgroundColor = '#4299e1';
       });
-      
+
       // Événement de clic pour générer et remplir l'OTP
       otpButton.addEventListener('click', async () => {
         try {
@@ -853,10 +863,10 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
             targetField.value = otpCode;
             targetField.dispatchEvent(new Event('input', { bubbles: true }));
             targetField.dispatchEvent(new Event('change', { bubbles: true }));
-            
+
             // Afficher une notification de succès
             showNotification(`Code OTP généré pour ${cred.username}`, 'success');
-            
+
             // Fermer la mini-barre après utilisation
             miniBar.remove();
           } else {
@@ -867,15 +877,15 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
           showNotification('Erreur lors de la génération du code OTP', 'error');
         }
       });
-      
+
       miniBar.appendChild(otpButton);
     }
   });
-  
+
   // Bouton de fermeture
   const closeButton = document.createElement('button');
   closeButton.textContent = '×';
-  
+
   Object.assign(closeButton.style, {
     backgroundColor: 'transparent',
     color: '#a0aec0',
@@ -885,31 +895,31 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
     padding: '0 4px',
     marginLeft: '8px'
   });
-  
+
   closeButton.addEventListener('click', () => {
     miniBar.remove();
   });
-  
+
   closeButton.addEventListener('mouseenter', () => {
     closeButton.style.color = 'white';
   });
-  
+
   closeButton.addEventListener('mouseleave', () => {
     closeButton.style.color = '#a0aec0';
   });
-  
+
   miniBar.appendChild(closeButton);
-  
+
   // Ajouter la mini-barre au document
   document.body.appendChild(miniBar);
-  
+
   // Fermer automatiquement après 10 secondes
   setTimeout(() => {
     if (miniBar.parentNode) {
       miniBar.remove();
     }
   }, 10000);
-  
+
   // Fermer en cliquant à l'extérieur
   setTimeout(() => {
     const closeHandler = (e: Event) => {
@@ -929,7 +939,7 @@ function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
   const id = field.id.toLowerCase();
   const name = field.name.toLowerCase();
   const config = siteConfig.whiteList.fields;
-  
+
   return (
     config.otpNames.some(n => name.includes(n)) ||
     config.otpIds.some(i => id.includes(i))
@@ -939,7 +949,7 @@ function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
 function detectAutofillFields(): AutofillField[] {
   // Store detected fields
   const autofillFields: AutofillField[] = [];
-  
+
   // Regular expressions for field detection based on attributes and ID/name patterns
   const patterns = {
     name: /^(?:name|full[_-]?name|first[_-]?name|last[_-]?name|fname|lname|given[_-]?name|family[_-]?name|current-email|j_username|user_name|user|user-name|login|vb_login_username|user name|user id|user-id|userid|id|form_loginname|wpname|mail|loginid|login id|login_name|openid_identifier|authentication_email|openid|auth_email|auth_id|authentication_identifier|authentication_id|customer_number|customernumber|onlineid|identifier|ww_x_util|loginfmt|username|log(in)?id|account|account[-_]?name|email[-_]?address)$/i,
@@ -952,7 +962,7 @@ function detectAutofillFields(): AutofillField[] {
   const inputElements = document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>(
     'input:not([type="hidden"]):not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="image"]):not([type="range"]):not([type="color"]):not([type="date"]):not([type="datetime-local"]):not([type="month"]):not([type="time"]):not([type="week"]), textarea'
   );
-  
+
   // Process each input element
   inputElements.forEach(element => {
     // Skip invisible elements
@@ -967,21 +977,21 @@ function detectAutofillFields(): AutofillField[] {
     const autocomplete = element.getAttribute("autocomplete")?.toLowerCase() || "";
     const ariaLabel = element.getAttribute("aria-label")?.toLowerCase() || "";
     const className = element.className.toLowerCase();
-    
+
     // Determine field type based on attributes
     let fieldType: AutofillField["type"] | null = null;
 
     if (autocomplete === "off") {
       return;
     }
-    
+
     // Check by input type
     if (type === "email") {
       fieldType = "email";
     } else if (type === "password") {
       fieldType = "password";
     }
-    
+
     // Check by autocomplete attribute
     if (!fieldType) {
       if (autocomplete.includes("name") || autocomplete === "name" || autocomplete === "username") {
@@ -994,7 +1004,7 @@ function detectAutofillFields(): AutofillField[] {
         fieldType = "otp";
       }
     }
-    
+
     // Check by id or name patterns
     if (!fieldType) {
       if (patterns.name.test(id) || patterns.name.test(name)) {
@@ -1007,7 +1017,7 @@ function detectAutofillFields(): AutofillField[] {
         fieldType = "otp";
       }
     }
-    
+
     // Check by aria-label
     if (!fieldType && ariaLabel) {
       if (patterns.name.test(ariaLabel) || /username|user name|identifier|login|account/i.test(ariaLabel)) {
@@ -1020,7 +1030,7 @@ function detectAutofillFields(): AutofillField[] {
         fieldType = "otp";
       }
     }
-    
+
     // Check by class name for common patterns
     if (!fieldType && className) {
       if (/username|user-name|userid|login|account/i.test(className)) {
@@ -1033,16 +1043,16 @@ function detectAutofillFields(): AutofillField[] {
         fieldType = "otp";
       }
     }
-    
+
     // Check by placeholder or label text
     if (!fieldType) {
       const placeholder = element.placeholder.toLowerCase();
       const labelElement = document.querySelector(`label[for="${element.id}"]`);
       const labelText = labelElement ? labelElement.textContent?.toLowerCase() || "" : "";
-      
-      if (patterns.name.test(placeholder) || patterns.name.test(labelText) || 
-          /username|user name|identifier|login|account/i.test(placeholder) || 
-          /username|user name|identifier|login|account/i.test(labelText)) {
+
+      if (patterns.name.test(placeholder) || patterns.name.test(labelText) ||
+        /username|user name|identifier|login|account/i.test(placeholder) ||
+        /username|user name|identifier|login|account/i.test(labelText)) {
         fieldType = "name";
       } else if (patterns.email.test(placeholder) || patterns.email.test(labelText)) {
         fieldType = "email";
@@ -1052,35 +1062,35 @@ function detectAutofillFields(): AutofillField[] {
         fieldType = "otp";
       }
     }
-    
+
     // Special case for OTP: inputs with maxlength of 1-8 and numeric pattern or inputmode
-    if (!fieldType && 
-        element instanceof HTMLInputElement && 
-        ((element.maxLength >= 1 && element.maxLength <= 8) || 
-         element.getAttribute("inputmode") === "numeric") &&
-        (element.pattern === "[0-9]*" || element.getAttribute("inputmode") === "numeric")) {
+    if (!fieldType &&
+      element instanceof HTMLInputElement &&
+      ((element.maxLength >= 1 && element.maxLength <= 8) ||
+        element.getAttribute("inputmode") === "numeric") &&
+      (element.pattern === "[0-9]*" || element.getAttribute("inputmode") === "numeric")) {
       fieldType = "otp";
     }
-    
+
     // Check for nearby labels that might not be linked by id
     if (!fieldType) {
       // Get all labels that are nearby (same parent or grandparent)
       const parent = element.parentElement;
       const grandparent = parent?.parentElement;
       const nearbyLabels: HTMLLabelElement[] = [];
-      
+
       if (parent) {
         nearbyLabels.push(...Array.from(parent.querySelectorAll('label')));
       }
-      
+
       if (grandparent) {
         nearbyLabels.push(...Array.from(grandparent.querySelectorAll('label')));
       }
-      
+
       // Check if any labels match our patterns
       for (const label of nearbyLabels) {
         const labelText = label.textContent?.toLowerCase() || "";
-        
+
         if (patterns.name.test(labelText) || /username|user name|identifier|login|account/i.test(labelText)) {
           fieldType = "name";
           break;
@@ -1096,7 +1106,7 @@ function detectAutofillFields(): AutofillField[] {
         }
       }
     }
-    
+
     // Add the field if a type was determined
     if (fieldType) {
       autofillFields.push({
@@ -1105,7 +1115,7 @@ function detectAutofillFields(): AutofillField[] {
       });
     }
   });
-  
+
   return autofillFields;
 }
 
@@ -1117,7 +1127,7 @@ function setupMutationObserver(): void {
   const observer = new MutationObserver((mutations) => {
     // Vérifier si de nouveaux éléments ont été ajoutés
     let newInputsDetected = false;
-    
+
     for (const mutation of mutations) {
       if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
         // Parcourir les nœuds ajoutés
@@ -1134,16 +1144,16 @@ function setupMutationObserver(): void {
         }
       }
       // Vérifier également les modifications d'attributs qui pourraient transformer un champ
-      else if (mutation.type === 'attributes' && 
-              mutation.target instanceof HTMLElement &&
-              (mutation.target.tagName === 'INPUT' || mutation.target.tagName === 'TEXTAREA')) {
+      else if (mutation.type === 'attributes' &&
+        mutation.target instanceof HTMLElement &&
+        (mutation.target.tagName === 'INPUT' || mutation.target.tagName === 'TEXTAREA')) {
         newInputsDetected = true;
         break;
       }
-      
+
       if (newInputsDetected) break;
     }
-    
+
     // Si de nouveaux champs ont été détectés, attacher les icônes inline (style Bitwarden)
     if (newInputsDetected) {
       console.log('Nouveaux champs détectés, ajout des icônes inline...');
@@ -1152,7 +1162,7 @@ function setupMutationObserver(): void {
       }, 500); // Attendre que le DOM soit stable
     }
   });
-  
+
   // Observer les modifications du document
   observer.observe(document.body, {
     childList: true,
@@ -1160,7 +1170,7 @@ function setupMutationObserver(): void {
     attributes: true,
     attributeFilter: ['type', 'id', 'name', 'autocomplete', 'placeholder', 'class']
   });
-  
+
   console.log('Observateur de mutations configuré (mode Bitwarden-like)');
 }
 
@@ -1171,7 +1181,7 @@ async function checkForNewLoginForms(): Promise<void> {
   // Identifier les champs de formulaire
   const fields = detectAutofillFields();
   console.log('Champs de formulaire détectés:', fields);
-  
+
   // Vérifier si les champs sont vides (non remplis)
   const passwordEmpty = fields.some(f => f.type === "password" && (!f.element.value || f.element.value === ''));
   const hasNameField = fields.some(f => f.type === "name");
@@ -1194,12 +1204,12 @@ async function checkForNewLoginForms(): Promise<void> {
     await autoFillCredentials();
     autofillAttempted = true;
   }
-  
+
   // Si des champs OTP sont détectés et que l'autofill OTP n'a pas encore été tenté
   if (fields.some(f => f.type === "otp") && !otpAutofillAttempted) {
     // Vérifier si les champs sont vides (non remplis)
     const otpEmpty = fields.some(f => f.type === "otp" && !f.element.value);
-    
+
     if (otpEmpty) {
       console.log('Nouveau champ OTP détecté, tentative d\'autofill');
       await autoFillOTP();
@@ -1222,7 +1232,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, message: 'Informations de connexion incomplètes' });
       }
       break;
-      
+
     case 'fillOTP':
       // Remplir un champ OTP avec un code
       if (message.otp) {
@@ -1232,7 +1242,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, message: 'Code OTP manquant' });
       }
       break;
-      
+
     case 'identifyFields':
       console.log('Identifier les champs de formulaire sur la page');
       // Identifier les champs de formulaire sur la page
@@ -1244,7 +1254,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
       console.log('Injecting file selector');
       // Informer l'utilisateur qu'il doit interagir avec l'élément
       showNotification('Veuillez cliquer sur la page pour activer le sélecteur de fichier', 'info');
-      
+
       // Créer un gestionnaire d'événement temporaire pour le clic utilisateur
       const handleUserClick = () => {
         // Une fois que l'utilisateur a cliqué, nous pouvons activer le sélecteur de fichier
@@ -1252,10 +1262,10 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Nettoyer l'écouteur d'événement après utilisation
         document.removeEventListener('click', handleUserClick);
       };
-      
+
       // Ajouter l'écouteur d'événement pour attendre le clic de l'utilisateur
       document.addEventListener('click', handleUserClick, { once: true });
-      
+
       sendResponse({ success: true, message: 'En attente du clic utilisateur pour le sélecteur de fichier' });
       break;
     case 'forceAutofill':
@@ -1281,7 +1291,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, message: 'Aucun champ focalisé' });
       }
       return true; // Indique que la réponse sera envoyée de manière asynchrone
-      
+
     case 'forceOTPAutofill':
       // Dans le mode Bitwarden-like, afficher une mini-barre OTP au lieu d'autofill direct
       if (lastFocusedField && isOTPField(lastFocusedField)) {
@@ -1300,11 +1310,11 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, message: 'Aucun champ OTP focalisé' });
       }
       return true; // Indique que la réponse sera envoyée de manière asynchrone
-      
+
     default:
       sendResponse({ success: false, message: 'Action non reconnue' });
   }
-  
+
   return true; // Indique que la réponse sera envoyée de manière asynchrone
 });
 
@@ -1319,22 +1329,17 @@ async function getMatchingCredentials(): Promise<Credential[]> {
       if (response && response.success && response.passwords) {
         const currentUrl = window.location.href;
         const currentHostname = window.location.hostname;
-        
+
         // Filtrer les mots de passe qui correspondent à l'URL actuelle
         const matchingPasswords = response.passwords.filter((password: any) => {
           if (!password.url) return false;
-          
-          try {
-            // Essayer de créer un objet URL à partir de l'URL stockée
-            const storedUrl = new URL(password.url);
-            // Vérifier si le hostname correspond
-            return storedUrl.hostname === currentHostname;
-          } catch (e) {
-            // Si l'URL n'est pas valide, vérifier si elle est contenue dans l'URL actuelle
-            return currentUrl.includes(password.url) || currentHostname.includes(password.url);
-          }
+
+          // Essayer de créer un objet URL à partir de l'URL stockée
+          const storedUrl = password.url;
+          // Vérifier si le hostname correspond
+          return storedUrl.hostname === currentHostname || currentHostname.endsWith('.' + storedUrl);
         });
-        
+
         // Convertir les mots de passe en identifiants
         const credentials: Credential[] = matchingPasswords.map((password: any) => ({
           username: password.username,
@@ -1343,7 +1348,7 @@ async function getMatchingCredentials(): Promise<Credential[]> {
           description: password.description,
           otp: password.otp
         }));
-        
+
         resolve(credentials);
       } else {
         resolve([]);
@@ -1362,7 +1367,7 @@ function showConfirmationMenu(credential: Credential): void {
   if (existingMenu) {
     existingMenu.remove();
   }
-  
+
   // Créer le menu
   const menu = document.createElement('div');
   menu.id = 'skapauto-confirmation-menu';
@@ -1377,7 +1382,7 @@ function showConfirmationMenu(credential: Credential): void {
   menu.style.maxWidth = '300px';
   menu.style.fontFamily = "'Work Sans', sans-serif";
   menu.style.transition = 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out';
-  
+
   // Ajouter un titre
   const title = document.createElement('div');
   title.textContent = 'Confirmer l\'autofill';
@@ -1388,33 +1393,33 @@ function showConfirmationMenu(credential: Credential): void {
   title.style.paddingBottom = '5px';
   title.style.color = '#1d1b21';
   menu.appendChild(title);
-  
+
   // Ajouter les informations du compte
   const info = document.createElement('div');
   info.style.marginBottom = '10px';
   info.style.padding = '5px';
-  
+
   const usernameSpan = document.createElement('div');
   usernameSpan.textContent = `Nom d'utilisateur: ${credential.username}`;
   usernameSpan.style.fontWeight = 'bold';
   usernameSpan.style.color = '#1d1b21';
   info.appendChild(usernameSpan);
-  
+
   const serviceSpan = document.createElement('div');
   serviceSpan.textContent = `Service: ${credential.url}`;
   serviceSpan.style.color = '#474b4f';
   serviceSpan.style.fontSize = '0.9em';
   info.appendChild(serviceSpan);
-  
+
   menu.appendChild(info);
-  
+
   // Conteneur pour les boutons
   const buttonContainer = document.createElement('div');
   buttonContainer.style.display = 'flex';
   buttonContainer.style.justifyContent = 'space-between';
   buttonContainer.style.gap = '10px';
   buttonContainer.style.marginTop = '16px';
-  
+
   // Bouton Accepter
   const acceptButton = document.createElement('div');
   acceptButton.textContent = 'Accepter';
@@ -1438,7 +1443,7 @@ function showConfirmationMenu(credential: Credential): void {
     fillPasswordForm(credential.username, credential.password);
     menu.remove();
   });
-  
+
   // Bouton Annuler
   const cancelButton = document.createElement('div');
   cancelButton.textContent = 'Annuler';
@@ -1461,14 +1466,14 @@ function showConfirmationMenu(credential: Credential): void {
   cancelButton.addEventListener('click', () => {
     menu.remove();
   });
-  
+
   buttonContainer.appendChild(acceptButton);
   buttonContainer.appendChild(cancelButton);
   menu.appendChild(buttonContainer);
-  
+
   // Ajouter le menu à la page
   document.body.appendChild(menu);
-  
+
   // Ajouter l'effet de survol sur le menu
   menu.addEventListener('mouseover', () => {
     menu.style.transform = 'translateY(-2px)';
@@ -1478,7 +1483,7 @@ function showConfirmationMenu(credential: Credential): void {
     menu.style.transform = 'translateY(0)';
     menu.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
   });
-  
+
   // Fermer le menu après 30 secondes s'il n'a pas été fermé
   setTimeout(() => {
     if (document.getElementById('skapauto-confirmation-menu')) {
@@ -1491,20 +1496,20 @@ function showConfirmationMenu(credential: Credential): void {
 async function autoFillCredentials(): Promise<void> {
   // Récupérer les identifiants correspondants
   const credentials = await getMatchingCredentials();
-  
+
   // Si aucun identifiant ne correspond, ne rien faire
   if (credentials.length === 0) {
     console.log('Aucun identifiant correspondant trouvé');
     return;
   }
-  
+
   // Si un seul identifiant correspond, afficher le menu de confirmation
   if (credentials.length === 1) {
     console.log('Un seul identifiant correspondant trouvé, affichage du menu de confirmation');
     showConfirmationMenu(credentials[0]);
     return;
   }
-  
+
   // Si plusieurs identifiants correspondent, afficher le menu de sélection
   console.log('Plusieurs identifiants correspondants trouvés, affichage du menu de sélection');
   showCredentialSelectionMenu(credentials);
@@ -1520,7 +1525,7 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
   if (existingMenu) {
     existingMenu.remove();
   }
-  
+
   // Créer le menu
   const menu = document.createElement('div');
   menu.id = 'skapauto-credential-menu';
@@ -1535,7 +1540,7 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
   menu.style.maxWidth = '300px';
   menu.style.fontFamily = "'Work Sans', sans-serif";
   menu.style.transition = 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out';
-  
+
   // Ajouter un titre
   const title = document.createElement('div');
   title.textContent = 'Choisir un identifiant';
@@ -1546,7 +1551,7 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
   title.style.paddingBottom = '5px';
   title.style.color = '#1d1b21';
   menu.appendChild(title);
-  
+
   // Ajouter les options
   credentials.forEach((credential, index) => {
     const option = document.createElement('div');
@@ -1554,16 +1559,16 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
     option.style.cursor = 'pointer';
     option.style.borderBottom = index < credentials.length - 1 ? '1px solid #1d1b21' : 'none';
     option.style.transition = 'all 0.2s ease-in-out';
-    
+
     // Conteneur pour les informations
     const infoContainer = document.createElement('div');
-    
+
     // Service et favicon
     const serviceContainer = document.createElement('div');
     serviceContainer.style.display = 'flex';
     serviceContainer.style.alignItems = 'center';
     serviceContainer.style.marginBottom = '4px';
-    
+
     if (credential.favicon) {
       const favicon = document.createElement('img');
       favicon.src = getFaviconUrl(credential.url || '');
@@ -1572,24 +1577,24 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
       favicon.style.marginRight = '8px';
       serviceContainer.appendChild(favicon);
     }
-    
+
     const serviceName = document.createElement('span');
     serviceName.textContent = credential.url || 'Identifiant';
     serviceName.style.fontWeight = 'bold';
     serviceName.style.color = '#1d1b21';
     serviceContainer.appendChild(serviceName);
-    
+
     infoContainer.appendChild(serviceContainer);
-    
+
     // Nom d'utilisateur
     const username = document.createElement('div');
     username.textContent = credential.username;
     username.style.fontSize = '0.9em';
     username.style.color = '#474b4f';
     infoContainer.appendChild(username);
-    
+
     option.appendChild(infoContainer);
-    
+
     // Effets de survol
     option.addEventListener('mouseover', () => {
       option.style.backgroundColor = '#f0f0f0';
@@ -1599,16 +1604,16 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
       option.style.backgroundColor = 'transparent';
       option.style.transform = 'translateX(0)';
     });
-    
+
     // Événement de clic
     option.addEventListener('click', () => {
       fillPasswordForm(credential.username, credential.password);
       menu.remove();
     });
-    
+
     menu.appendChild(option);
   });
-  
+
   // Ajouter un bouton de fermeture
   const closeButton = document.createElement('div');
   closeButton.textContent = 'Fermer';
@@ -1620,7 +1625,7 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
   closeButton.style.borderRadius = '0.375rem';
   closeButton.style.cursor = 'pointer';
   closeButton.style.transition = 'all 0.2s ease-in-out';
-  
+
   closeButton.addEventListener('mouseover', () => {
     closeButton.style.opacity = '0.9';
     closeButton.style.transform = 'translateY(-1px)';
@@ -1633,10 +1638,10 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
     menu.remove();
   });
   menu.appendChild(closeButton);
-  
+
   // Ajouter le menu à la page
   document.body.appendChild(menu);
-  
+
   // Ajouter l'effet de survol sur le menu
   menu.addEventListener('mouseover', () => {
     menu.style.transform = 'translateY(-2px)';
@@ -1646,7 +1651,7 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
     menu.style.transform = 'translateY(0)';
     menu.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
   });
-  
+
   // Fermer le menu après 30 secondes s'il n'a pas été fermé
   setTimeout(() => {
     if (document.getElementById('skapauto-credential-menu')) {
@@ -1662,10 +1667,10 @@ function showCredentialSelectionMenu(credentials: Credential[]): void {
  */
 function isVisibleElement(element: HTMLElement): boolean {
   const style = window.getComputedStyle(element);
-  return style.display !== 'none' && 
-         style.visibility !== 'hidden' && 
-         element.offsetWidth > 0 && 
-         element.offsetHeight > 0;
+  return style.display !== 'none' &&
+    style.visibility !== 'hidden' &&
+    element.offsetWidth > 0 &&
+    element.offsetHeight > 0;
 }
 
 /**
@@ -1685,10 +1690,10 @@ function fillPasswordForm(username: string, password: string): void {
   // Identifier les champs
   const fields = detectAutofillFields();
   console.log(fields);
-  
+
   // Remplir le champ de nom d'utilisateur
   let usernameField: HTMLInputElement | null = null;
-  
+
   if (fields.some(f => f.type === "name")) {
     usernameField = fields.find(f => f.type === "name")?.element as HTMLInputElement;
   } else if (fields.some(f => f.type === "email")) {
@@ -1699,17 +1704,17 @@ function fillPasswordForm(username: string, password: string): void {
     const potentialUsernameFields = Array.from(document.querySelectorAll<HTMLInputElement>(
       'input[type="text"], input[type="email"], input:not([type]), input[name*="user"], input[name*="email"], input[id*="user"], input[id*="email"], input[class*="user"], input[class*="email"]'
     ));
-    
+
     // Filtrer les champs visibles
     const visibleFields = potentialUsernameFields.filter(field => isVisibleElement(field));
-    
+
     if (visibleFields.length > 0) {
       // Préférer les champs qui sont directement dans un formulaire
       const formFields = visibleFields.filter(field => field.closest('form'));
       usernameField = formFields.length > 0 ? formFields[0] : visibleFields[0];
     }
   }
-  
+
   // Remplir le champ de nom d'utilisateur
   if (usernameField) {
     // Essayer de simuler une saisie utilisateur plus authentique
@@ -1721,24 +1726,24 @@ function fillPasswordForm(username: string, password: string): void {
     usernameField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
     usernameField.blur();
   }
-  
+
   // Remplir le champ de mot de passe
   let passwordField: HTMLInputElement | null = null;
-  
+
   if (fields.some(f => f.type === "password")) {
     passwordField = fields.find(f => f.type === "password")?.element as HTMLInputElement;
   } else {
     // Méthode de secours: rechercher par type
     const passwordFields = Array.from(document.querySelectorAll<HTMLInputElement>('input[type="password"]'));
-    
+
     // Filtrer les champs visibles
     const visibleFields = passwordFields.filter(field => isVisibleElement(field));
-    
+
     if (visibleFields.length > 0) {
       passwordField = visibleFields[0];
     }
   }
-  
+
   // Remplir le champ de mot de passe
   if (passwordField) {
     // Essayer de simuler une saisie utilisateur plus authentique
@@ -1750,23 +1755,23 @@ function fillPasswordForm(username: string, password: string): void {
     passwordField.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
     passwordField.blur();
   }
-  
+
   // Tenter de soumettre le formulaire automatiquement si un bouton de soumission est présent
   setTimeout(() => {
     // Chercher le formulaire parent
     let form: HTMLFormElement | null = null;
-    
+
     if (passwordField && passwordField.closest('form')) {
       form = passwordField.closest('form');
     } else if (usernameField && usernameField.closest('form')) {
       form = usernameField.closest('form');
     }
-    
+
     // Si un formulaire est trouvé, tenter de le soumettre
     if (form) {
       // Chercher un bouton de soumission dans le formulaire
       const submitButton = form.querySelector('button[type="submit"], input[type="submit"], button:not([type]), button[class*="login"], button[class*="submit"], input[class*="login"], input[class*="submit"]');
-      
+
       if (submitButton) {
         (submitButton as HTMLElement).click();
       } else {
@@ -1784,11 +1789,11 @@ function fillPasswordForm(username: string, password: string): void {
     } else {
       // Si aucun formulaire n'est trouvé, chercher un bouton de connexion sur la page
       const loginButtons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type]), button[class*="login"], button[class*="submit"], input[class*="login"], input[class*="submit"]');
-      
+
       if (loginButtons.length > 0) {
         // Filtrer les boutons visibles
         const visibleButtons = Array.from(loginButtons).filter(button => isVisibleElement(button as HTMLElement));
-        
+
         if (visibleButtons.length > 0) {
           (visibleButtons[0] as HTMLElement).click();
         }
@@ -1807,7 +1812,7 @@ function showOTPConfirmationMenu(credential: Credential): void {
   if (existingMenu) {
     existingMenu.remove();
   }
-  
+
   // Créer le menu
   const menu = document.createElement('div');
   menu.id = 'skapauto-otp-confirmation-menu';
@@ -1822,7 +1827,7 @@ function showOTPConfirmationMenu(credential: Credential): void {
   menu.style.maxWidth = '300px';
   menu.style.fontFamily = "'Work Sans', sans-serif";
   menu.style.transition = 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out';
-  
+
   // Ajouter un titre
   const title = document.createElement('div');
   title.textContent = 'Confirmer l\'autofill OTP';
@@ -1833,33 +1838,33 @@ function showOTPConfirmationMenu(credential: Credential): void {
   title.style.paddingBottom = '5px';
   title.style.color = '#1d1b21';
   menu.appendChild(title);
-  
+
   // Ajouter les informations du compte
   const info = document.createElement('div');
   info.style.marginBottom = '10px';
   info.style.padding = '5px';
-  
+
   const usernameSpan = document.createElement('div');
   usernameSpan.textContent = `Nom d'utilisateur: ${credential.username}`;
   usernameSpan.style.fontWeight = 'bold';
   usernameSpan.style.color = '#1d1b21';
   info.appendChild(usernameSpan);
-  
+
   const serviceSpan = document.createElement('div');
   serviceSpan.textContent = `Service: ${credential.url}`;
   serviceSpan.style.color = '#474b4f';
   serviceSpan.style.fontSize = '0.9em';
   info.appendChild(serviceSpan);
-  
+
   menu.appendChild(info);
-  
+
   // Conteneur pour les boutons
   const buttonContainer = document.createElement('div');
   buttonContainer.style.display = 'flex';
   buttonContainer.style.justifyContent = 'space-between';
   buttonContainer.style.gap = '10px';
   buttonContainer.style.marginTop = '16px';
-  
+
   // Bouton Accepter
   const acceptButton = document.createElement('div');
   acceptButton.textContent = 'Accepter';
@@ -1888,7 +1893,7 @@ function showOTPConfirmationMenu(credential: Credential): void {
     }
     menu.remove();
   });
-  
+
   // Bouton Annuler
   const cancelButton = document.createElement('div');
   cancelButton.textContent = 'Annuler';
@@ -1911,14 +1916,14 @@ function showOTPConfirmationMenu(credential: Credential): void {
   cancelButton.addEventListener('click', () => {
     menu.remove();
   });
-  
+
   buttonContainer.appendChild(acceptButton);
   buttonContainer.appendChild(cancelButton);
   menu.appendChild(buttonContainer);
-  
+
   // Ajouter le menu à la page
   document.body.appendChild(menu);
-  
+
   // Ajouter l'effet de survol sur le menu
   menu.addEventListener('mouseover', () => {
     menu.style.transform = 'translateY(-2px)';
@@ -1928,7 +1933,7 @@ function showOTPConfirmationMenu(credential: Credential): void {
     menu.style.transform = 'translateY(0)';
     menu.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
   });
-  
+
   // Fermer le menu après 30 secondes s'il n'a pas été fermé
   setTimeout(() => {
     if (document.getElementById('skapauto-otp-confirmation-menu')) {
@@ -1940,28 +1945,28 @@ function showOTPConfirmationMenu(credential: Credential): void {
 async function autoFillOTP(): Promise<void> {
   // Récupérer les identifiants correspondants
   const credentials = await getMatchingCredentials();
-  
+
   // Si aucun identifiant ne correspond, ne rien faire
   if (credentials.length === 0) {
     console.log('Aucun identifiant correspondant trouvé pour OTP');
     return;
   }
-  
+
   // Filtrer les identifiants qui ont un code OTP
   const credentialsWithOTP = credentials.filter(cred => cred.otp);
-  
+
   if (credentialsWithOTP.length === 0) {
     console.log('Aucun identifiant avec OTP trouvé');
     return;
   }
-  
+
   // Si un seul identifiant avec OTP correspond, afficher le menu de confirmation
   if (credentialsWithOTP.length === 1) {
     console.log('Un seul identifiant avec OTP trouvé, affichage du menu de confirmation');
     showOTPConfirmationMenu(credentialsWithOTP[0]);
     return;
   }
-  
+
   // Si plusieurs identifiants avec OTP correspondent, afficher un menu de sélection
   console.log('Plusieurs identifiants avec OTP trouvés, affichage du menu de sélection');
   showOTPSelectionMenu(credentialsWithOTP);
@@ -1977,7 +1982,7 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
   if (existingMenu) {
     existingMenu.remove();
   }
-  
+
   // Créer le menu
   const menu = document.createElement('div');
   menu.id = 'skapauto-otp-menu';
@@ -1992,7 +1997,7 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
   menu.style.maxWidth = '300px';
   menu.style.fontFamily = "'Work Sans', sans-serif";
   menu.style.transition = 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out';
-  
+
   // Ajouter un titre
   const title = document.createElement('div');
   title.textContent = 'Choisir un compte pour OTP';
@@ -2003,7 +2008,7 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
   title.style.paddingBottom = '5px';
   title.style.color = '#1d1b21';
   menu.appendChild(title);
-  
+
   // Ajouter les options
   credentials.forEach((credential, index) => {
     const option = document.createElement('div');
@@ -2011,16 +2016,16 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
     option.style.cursor = 'pointer';
     option.style.borderBottom = index < credentials.length - 1 ? '1px solid #1d1b21' : 'none';
     option.style.transition = 'all 0.2s ease-in-out';
-    
+
     // Conteneur pour les informations
     const infoContainer = document.createElement('div');
-    
+
     // Service et favicon
     const serviceContainer = document.createElement('div');
     serviceContainer.style.display = 'flex';
     serviceContainer.style.alignItems = 'center';
     serviceContainer.style.marginBottom = '4px';
-    
+
     if (credential.favicon) {
       const favicon = document.createElement('img');
       favicon.src = getFaviconUrl(credential.url || '');
@@ -2029,24 +2034,24 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
       favicon.style.marginRight = '8px';
       serviceContainer.appendChild(favicon);
     }
-    
+
     const serviceName = document.createElement('span');
     serviceName.textContent = credential.url || 'Identifiant';
     serviceName.style.fontWeight = 'bold';
     serviceName.style.color = '#1d1b21';
     serviceContainer.appendChild(serviceName);
-    
+
     infoContainer.appendChild(serviceContainer);
-    
+
     // Nom d'utilisateur
     const username = document.createElement('div');
     username.textContent = credential.username;
     username.style.fontSize = '0.9em';
     username.style.color = '#474b4f';
     infoContainer.appendChild(username);
-    
+
     option.appendChild(infoContainer);
-    
+
     // Effets de survol
     option.addEventListener('mouseover', () => {
       option.style.backgroundColor = '#f0f0f0';
@@ -2056,16 +2061,16 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
       option.style.backgroundColor = 'transparent';
       option.style.transform = 'translateX(0)';
     });
-    
+
     // Événement de clic
     option.addEventListener('click', () => {
       showOTPConfirmationMenu(credential);
       menu.remove();
     });
-    
+
     menu.appendChild(option);
   });
-  
+
   // Ajouter un bouton de fermeture
   const closeButton = document.createElement('div');
   closeButton.textContent = 'Fermer';
@@ -2077,7 +2082,7 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
   closeButton.style.borderRadius = '0.375rem';
   closeButton.style.cursor = 'pointer';
   closeButton.style.transition = 'all 0.2s ease-in-out';
-  
+
   closeButton.addEventListener('mouseover', () => {
     closeButton.style.opacity = '0.9';
     closeButton.style.transform = 'translateY(-1px)';
@@ -2090,10 +2095,10 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
     menu.remove();
   });
   menu.appendChild(closeButton);
-  
+
   // Ajouter le menu à la page
   document.body.appendChild(menu);
-  
+
   // Ajouter l'effet de survol sur le menu
   menu.addEventListener('mouseover', () => {
     menu.style.transform = 'translateY(-2px)';
@@ -2103,7 +2108,7 @@ function showOTPSelectionMenu(credentials: Credential[]): void {
     menu.style.transform = 'translateY(0)';
     menu.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
   });
-  
+
   // Fermer le menu après 30 secondes s'il n'a pas été fermé
   setTimeout(() => {
     if (document.getElementById('skapauto-otp-menu')) {
@@ -2120,10 +2125,10 @@ function fillOTPField(otp: string): void {
   // Identifier les champs
   const fields = detectAutofillFields();
   console.log('Champs OTP identifiés:', fields.filter(f => f.type === "otp"));
-  
+
   // Si des champs OTP sont trouvés, les remplir
   const otpFields = fields.filter(f => f.type === "otp");
-  
+
   if (otpFields.length > 0) {
     // Vérifier s'il y a plusieurs champs pour les codes segmentés
     if (otpFields.length > 1 && otpFields.length <= otp.length) {
@@ -2149,17 +2154,17 @@ function fillOTPField(otp: string): void {
       otpField.blur();
       console.log('Champ OTP rempli avec:', otp);
     }
-    
+
     // Tenter de soumettre le formulaire automatiquement
     setTimeout(() => {
       // Trouver le formulaire parent du premier champ OTP
       const form = otpFields[0].element.closest('form');
-      
+
       // Si un formulaire est trouvé, tenter de le soumettre
       if (form) {
         // Chercher un bouton de soumission dans le formulaire
         const submitButton = form.querySelector('button[type="submit"], input[type="submit"], button:not([type]), button[class*="verify"], button[class*="confirm"], button[class*="submit"]');
-        
+
         if (submitButton) {
           (submitButton as HTMLElement).click();
         } else {
@@ -2177,11 +2182,11 @@ function fillOTPField(otp: string): void {
       } else {
         // Si aucun formulaire n'est trouvé, chercher un bouton de validation sur la page
         const verifyButtons = document.querySelectorAll('button[type="submit"], input[type="submit"], button:not([type]), button[class*="verify"], button[class*="confirm"], button[class*="submit"]');
-        
+
         if (verifyButtons.length > 0) {
           // Filtrer les boutons visibles
           const visibleButtons = Array.from(verifyButtons).filter(button => isVisibleElement(button as HTMLElement));
-          
+
           if (visibleButtons.length > 0) {
             (visibleButtons[0] as HTMLElement).click();
           }
@@ -2190,12 +2195,12 @@ function fillOTPField(otp: string): void {
     }, 1000); // Augmenter le délai pour laisser plus de temps aux sites de traiter les entrées
   } else {
     console.log('Aucun champ OTP trouvé');
-    
+
     // Essai de détection alternative pour les champs OTP qui seraient masqués par des frameworks
     const potentialOtpFields = Array.from(document.querySelectorAll<HTMLInputElement>(
       'input[type="text"][maxlength="6"], input[type="number"][maxlength="6"], input[maxlength="6"], input[inputmode="numeric"], input[pattern="[0-9]*"]'
     )).filter(field => isVisibleElement(field));
-    
+
     if (potentialOtpFields.length > 0) {
       potentialOtpFields[0].focus();
       potentialOtpFields[0].value = otp;
@@ -2215,20 +2220,20 @@ function fillOTPField(otp: string): void {
 async function generateTOTPCode(otpUri: string): Promise<string | null> {
   try {
     console.log('Génération du code TOTP à partir de l\'URI:', otpUri);
-    
+
     // Vérifier si l'URI est valide
     if (!otpUri.startsWith('otpauth://')) {
       console.error('URI OTP invalide:', otpUri);
       return null;
     }
-    
+
     // Extraire les paramètres de l'URI
     const params = parseTOTPUri(otpUri);
     if (!params) {
       console.error('Impossible de parser l\'URI OTP');
       return null;
     }
-    
+
     // Générer le code TOTP
     const code = await calculateTOTP(params);
     console.log('Code TOTP généré:', code);
@@ -2240,23 +2245,23 @@ async function generateTOTPCode(otpUri: string): Promise<string | null> {
 }
 
 
-  function getFaviconUrl(domain: string): string {
-    // Nettoyer l'URL pour extraire le domaine
-    let cleanDomain = domain;
-    
-    // Supprimer le protocole s'il existe
-    if (cleanDomain.includes('://')) {
-      cleanDomain = cleanDomain.split('://')[1];
-    }
-    
-    // Supprimer le chemin s'il existe
-    if (cleanDomain.includes('/')) {
-      cleanDomain = cleanDomain.split('/')[0];
-    }
-    
-    // Utiliser Google Favicon service pour récupérer l'icône
-    return `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=32`;
+function getFaviconUrl(domain: string): string {
+  // Nettoyer l'URL pour extraire le domaine 
+  let cleanDomain = domain;
+
+  // Supprimer le protocole s'il existe
+  if (cleanDomain.includes('://')) {
+    cleanDomain = cleanDomain.split('://')[1];
   }
+
+  // Supprimer le chemin s'il existe
+  if (cleanDomain.includes('/')) {
+    cleanDomain = cleanDomain.split('/')[0];
+  }
+
+  // Utiliser Google Favicon service pour récupérer l'icône
+  return `https://www.google.com/s2/favicons?domain=${cleanDomain}&sz=32`;
+}
 
 /**
  * Parse un URI OTP pour extraire les paramètres
@@ -2267,27 +2272,27 @@ function parseTOTPUri(uri: string): TOTPParams | null {
   try {
     // Format: otpauth://totp/Label?secret=SECRET&issuer=ISSUER&algorithm=ALGORITHM&digits=DIGITS&period=PERIOD
     const url = new URL(uri);
-    
+
     // Vérifier si c'est un URI TOTP
     if (url.protocol !== 'otpauth:' || url.host !== 'totp') {
       console.error('URI non TOTP:', uri);
       return null;
     }
-    
+
     // Extraire les paramètres
     const params = new URLSearchParams(url.search);
     const secret = params.get('secret');
-    
+
     if (!secret) {
       console.error('Secret manquant dans l\'URI OTP');
       return null;
     }
-    
+
     // Extraire les autres paramètres avec des valeurs par défaut
     const algorithm = params.get('algorithm') || 'SHA1';
     const digits = parseInt(params.get('digits') || '6');
     const period = parseInt(params.get('period') || '30');
-    
+
     return {
       secret,
       algorithm,
@@ -2329,22 +2334,22 @@ function setupFormSubmissionDetection(): void {
   document.addEventListener('submit', async (event) => {
     // Identifier les champs de formulaire
     const fields = detectAutofillFields();
-    
+
     // Vérifier si c'est un formulaire de connexion
     if (fields.some(f => f.type === "password") && (fields.some(f => f.type === "name") || fields.some(f => f.type === "email"))) {
       // Récupérer les valeurs des champs
       const passwordValue = fields.find(f => f.type === "password")?.element.value;
-      const usernameValue = fields.some(f => f.type === "name") 
-        ? fields.find(f => f.type === "name")?.element.value 
+      const usernameValue = fields.some(f => f.type === "name")
+        ? fields.find(f => f.type === "name")?.element.value
         : fields.some(f => f.type === "email") ? fields.find(f => f.type === "email")?.element.value : '';
-      
+
       if (passwordValue && usernameValue) {
         // Vérifier si ces identifiants existent déjà
         const existingCredentials = await getMatchingCredentials();
-        const credentialExists = existingCredentials.some(cred => 
+        const credentialExists = existingCredentials.some(cred =>
           cred.username === usernameValue && cred.password === passwordValue
         );
-        
+
         // Si les identifiants n'existent pas encore, proposer de les enregistrer
         if (!credentialExists) {
           // Attendre un peu pour laisser le formulaire se soumettre
@@ -2355,30 +2360,30 @@ function setupFormSubmissionDetection(): void {
       }
     }
   });
-  
+
   // Observer les clics sur les boutons de connexion
   document.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
     console.log(target.tagName);
-    if (target.tagName === 'BUTTON' || 
-        (target.tagName === 'INPUT' && (target.getAttribute('type') === 'submit' || target.getAttribute('type') === 'button')) || (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit')) {
-      
+    if (target.tagName === 'BUTTON' ||
+      (target.tagName === 'INPUT' && (target.getAttribute('type') === 'submit' || target.getAttribute('type') === 'button')) || (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit')) {
+
       // Vérifier si le bouton est dans un formulaire de connexion
       const fields = detectAutofillFields();
       if (fields.some(f => f.type === "password") && (fields.some(f => f.type === "name") || fields.some(f => f.type === "email"))) {
         // Récupérer les valeurs des champs
         const passwordValue = fields.find(f => f.type === "password")?.element.value;
-        const usernameValue = fields.some(f => f.type === "name") 
-          ? fields.find(f => f.type === "name")?.element.value 
+        const usernameValue = fields.some(f => f.type === "name")
+          ? fields.find(f => f.type === "name")?.element.value
           : fields.some(f => f.type === "email") ? fields.find(f => f.type === "email")?.element.value : '';
-        
+
         if (passwordValue && usernameValue) {
           // Vérifier si ces identifiants existent déjà
           const existingCredentials = await getMatchingCredentials();
-          const credentialExists = existingCredentials.some(cred => 
+          const credentialExists = existingCredentials.some(cred =>
             cred.username === usernameValue && cred.password === passwordValue
           );
-          
+
           // Si les identifiants n'existent pas encore, proposer de les enregistrer
           if (!credentialExists) {
             // Attendre un peu pour laisser le formulaire se soumettre
@@ -2418,7 +2423,7 @@ function showSaveCredentialsModal(username: string, password: string): void {
   modal.style.maxWidth = '300px';
   modal.style.fontFamily = "'Work Sans', sans-serif";
   modal.style.transition = 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, opacity 0.3s ease-in-out';
-  
+
   // Ajouter un titre
   const title = document.createElement('div');
   title.textContent = 'Enregistrer les identifiants';
@@ -2429,37 +2434,37 @@ function showSaveCredentialsModal(username: string, password: string): void {
   title.style.paddingBottom = '5px';
   title.style.color = '#1d1b21';
   modal.appendChild(title);
-  
+
   // Informations sur les identifiants
   const info = document.createElement('div');
   info.style.marginBottom = '10px';
   info.style.padding = '5px';
-  
+
   const usernameSpan = document.createElement('div');
   usernameSpan.textContent = `Utilisateur: ${username}`;
   usernameSpan.style.fontWeight = 'bold';
   usernameSpan.style.color = '#1d1b21';
   info.appendChild(usernameSpan);
-  
+
   const passwordSpan = document.createElement('div');
   passwordSpan.textContent = `Mot de passe: ${'•'.repeat(password.length)}`;
   passwordSpan.style.color = '#474b4f';
   passwordSpan.style.fontSize = '0.9em';
   info.appendChild(passwordSpan);
-  
+
   const serviceSpan = document.createElement('div');
   serviceSpan.textContent = `Service: ${window.location.hostname}`;
   serviceSpan.style.color = '#474b4f';
   serviceSpan.style.fontSize = '0.9em';
   info.appendChild(serviceSpan);
-  
+
   modal.appendChild(info);
-  
+
   // Conteneur pour les boutons
   const buttonContainer = document.createElement('div');
   buttonContainer.style.display = 'flex';
   buttonContainer.style.justifyContent = 'space-between';
-  
+
   // Bouton Enregistrer
   const saveButton = document.createElement('div');
   saveButton.textContent = 'Enregistrer';
@@ -2471,17 +2476,17 @@ function showSaveCredentialsModal(username: string, password: string): void {
   saveButton.style.borderRadius = '0.375rem';
   saveButton.style.cursor = 'pointer';
   saveButton.style.transition = 'all 0.2s ease-in-out';
-  
+
   saveButton.addEventListener('mouseover', () => {
     saveButton.style.opacity = '0.9';
     saveButton.style.transform = 'translateY(-1px)';
   });
-  
+
   saveButton.addEventListener('mouseout', () => {
     saveButton.style.opacity = '1';
     saveButton.style.transform = 'translateY(0)';
   });
-  
+
   saveButton.addEventListener('click', () => {
     // Créer un nouvel identifiant
     const newCredential: Credential = {
@@ -2491,11 +2496,11 @@ function showSaveCredentialsModal(username: string, password: string): void {
       description: document.title || window.location.hostname,
       favicon: getFaviconUrl(window.location.hostname)
     };
-    
+
     // Envoyer au background script pour enregistrement
-    browser.runtime.sendMessage({ 
-      action: 'saveNewCredential', 
-      credential: newCredential 
+    browser.runtime.sendMessage({
+      action: 'saveNewCredential',
+      credential: newCredential
     }).then((response) => {
       if (response && response.success) {
         // Animation de disparition
@@ -2509,7 +2514,7 @@ function showSaveCredentialsModal(username: string, password: string): void {
       }
     });
   });
-  
+
   // Bouton Annuler
   const cancelButton = document.createElement('div');
   cancelButton.textContent = 'Annuler';
@@ -2521,42 +2526,42 @@ function showSaveCredentialsModal(username: string, password: string): void {
   cancelButton.style.borderRadius = '0.375rem';
   cancelButton.style.cursor = 'pointer';
   cancelButton.style.transition = 'all 0.2s ease-in-out';
-  
+
   cancelButton.addEventListener('mouseover', () => {
     cancelButton.style.opacity = '0.9';
     cancelButton.style.transform = 'translateY(-1px)';
   });
-  
+
   cancelButton.addEventListener('mouseout', () => {
     cancelButton.style.opacity = '1';
     cancelButton.style.transform = 'translateY(0)';
   });
-  
+
   cancelButton.addEventListener('click', () => {
     modal.style.opacity = '0';
     setTimeout(() => {
       modal.remove();
     }, 300);
   });
-  
+
   buttonContainer.appendChild(saveButton);
   buttonContainer.appendChild(cancelButton);
   modal.appendChild(buttonContainer);
-  
+
   // Ajouter la modal au document
   document.body.appendChild(modal);
-  
+
   // Ajouter l'effet de survol sur le menu
   modal.addEventListener('mouseover', () => {
     modal.style.transform = 'translateY(-2px)';
     modal.style.boxShadow = '0 6px 8px rgba(0, 0, 0, 0.15)';
   });
-  
+
   modal.addEventListener('mouseout', () => {
     modal.style.transform = 'translateY(0)';
     modal.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
   });
-  
+
   // Fermer le menu après 30 secondes s'il n'a pas été fermé
   setTimeout(() => {
     if (document.getElementById('skapauto-save-credentials-modal')) {
@@ -2589,7 +2594,7 @@ function showNotification(message: string, type: 'success' | 'error' | 'info'): 
   notification.style.transition = 'all 0.3s ease-in-out';
   notification.style.opacity = '0';
   notification.style.transform = 'translateY(20px)';
-  
+
   // Définir le style en fonction du type
   if (type === 'success') {
     notification.style.backgroundColor = '#4caf50';
@@ -2601,22 +2606,22 @@ function showNotification(message: string, type: 'success' | 'error' | 'info'): 
     notification.style.backgroundColor = '#2196f3';
     notification.style.color = 'white';
   }
-  
+
   notification.textContent = message;
-  
+
   // Ajouter au document
   document.body.appendChild(notification);
-  
+
   // Animation d'entrée
   setTimeout(() => {
     notification.style.opacity = '1';
     notification.style.transform = 'translateY(0)';
-    
+
     // Auto-fermeture après 3 secondes
     setTimeout(() => {
       notification.style.opacity = '0';
       notification.style.transform = 'translateY(20px)';
-      
+
       // Supprimer après la fin de l'animation
       setTimeout(() => {
         if (document.body.contains(notification)) {
@@ -2633,4 +2638,4 @@ function injectFileSelector() {
 }
 
 // Exporter une fonction vide pour que le bundler ne se plaigne pas
-export {};
+export { };
