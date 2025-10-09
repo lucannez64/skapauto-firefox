@@ -5,7 +5,7 @@ import { type ClientEx, type Uuid, type Password } from './lib/decoder';
 // Importer la bibliothèque pour générer des codes TOTP
 import * as OTPAuth from "otpauth";
 // Stockage sécurisé AES-GCM
-import { setEncrypted, getDecrypted, remove as removeEncrypted, wipeKey } from './lib/secureStorage';
+import { setEncrypted, getDecrypted, remove as removeEncrypted, wipeKey, enforceKeyTTL, scheduleKeyExpiry } from './lib/secureStorage';
 // Logger utilitaire
 import { info as logInfo, warn as logWarn, error as logError, debug as logDebug } from './lib/logger';
 
@@ -31,6 +31,35 @@ const CLIENT_EXPIRATION_TIME = 60 * 60 * 1000; // 1 heure
 let currentClient: ClientEx | null = null;
 // Stocker les mots de passe en mémoire
 let cachedPasswords: Password[] | null = null;
+
+// Enforce and schedule secure storage key expiry at startup
+(async function initSecurityTimers() {
+  try {
+    await enforceKeyTTL();
+    await scheduleKeyExpiry();
+  } catch (e) {
+    logWarn('Failed to initialize key expiry scheduling', e);
+  }
+})();
+
+// Also handle cases when the extension starts or is installed
+browser.runtime.onStartup.addListener(async () => {
+  try {
+    await enforceKeyTTL();
+    await scheduleKeyExpiry();
+  } catch (e) {
+    logWarn('onStartup key expiry scheduling failed', e);
+  }
+});
+
+browser.runtime.onInstalled.addListener(async () => {
+  try {
+    await enforceKeyTTL();
+    await scheduleKeyExpiry();
+  } catch (e) {
+    logWarn('onInstalled key expiry scheduling failed', e);
+  }
+});
 
 // Fonction pour exporter le token de session depuis le module client
 export async function setSessionToken(token: string) {

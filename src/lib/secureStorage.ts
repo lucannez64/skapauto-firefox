@@ -3,6 +3,8 @@
 export type SecureStorageKey = CryptoKey | null;
 
 let key: SecureStorageKey = null;
+// One-hour TTL for the persisted encryption key
+const KEY_TTL_MS = 60 * 60 * 1000;
 
 async function importKey(raw: ArrayBuffer): Promise<CryptoKey> {
   return crypto.subtle.importKey(
@@ -18,6 +20,12 @@ async function getPersistedKeyBytes(): Promise<Uint8Array | null> {
   const res = await browser.storage.local.get('secureStorageKey');
   const stored = res['secureStorageKey'];
   if (!stored || !stored.bytes) return null;
+  // Enforce TTL: remove if older than one hour
+  const ts: number | undefined = stored.ts;
+  if (typeof ts === 'number' && Date.now() - ts > KEY_TTL_MS) {
+    await browser.storage.local.remove('secureStorageKey');
+    return null;
+  }
   try {
     return new Uint8Array(stored.bytes);
   } catch {
@@ -26,7 +34,7 @@ async function getPersistedKeyBytes(): Promise<Uint8Array | null> {
 }
 
 async function persistKeyBytes(raw: Uint8Array): Promise<void> {
-  await browser.storage.local.set({ secureStorageKey: { bytes: Array.from(raw) } });
+  await browser.storage.local.set({ secureStorageKey: { bytes: Array.from(raw), ts: Date.now() } });
 }
 
 export async function ensureKey(): Promise<CryptoKey> {
@@ -46,6 +54,36 @@ export function wipeKey(): void {
   key = null;
   // Best-effort removal of persisted key; ignore promise
   void browser.storage.local.remove('secureStorageKey');
+}
+
+// Remove persisted key immediately if expired and set a timer to wipe at TTL
+export async function enforceKeyTTL(): Promise<void> {
+  const res = await browser.storage.local.get('secureStorageKey');
+  const stored = res['secureStorageKey'];
+  if (!stored || !stored.ts) return;
+  const ts: number = stored.ts;
+  const age = Date.now() - ts;
+  if (age > KEY_TTL_MS) {
+    wipeKey();
+    return;
+  }
+}
+
+export async function scheduleKeyExpiry(): Promise<void> {
+  const res = await browser.storage.local.get('secureStorageKey');
+  const stored = res['secureStorageKey'];
+  if (!stored || !stored.ts) return;
+  const ts: number = stored.ts;
+  const age = Date.now() - ts;
+  const remaining = KEY_TTL_MS - age;
+  if (remaining <= 0) {
+    wipeKey();
+    return;
+  }
+  // Schedule wipe; bounded to max 1 hour
+  setTimeout(() => {
+    wipeKey();
+  }, Math.min(remaining, KEY_TTL_MS));
 }
 
 async function encrypt(data: Uint8Array): Promise<{ iv: Uint8Array; ct: Uint8Array }> {
