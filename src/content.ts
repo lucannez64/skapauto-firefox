@@ -624,11 +624,9 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const isEmailPlaceholder = emailPlaceholderTerms.some(term => placeholder.includes(term));
   const isUsernamePlaceholder = usernamePlaceholderTerms.some(term => placeholder.includes(term));
   const isOTPPlaceholder = otpPlaceholderTerms.some(term => placeholder.includes(term));
-  // OTP field detection (removed sensitive field data logging)
-  logDebug('Checking OTP field indicators');
-  // Field ID checked (removed sensitive ID logging)
-  logDebug('Field ID checked for OTP indicators');
-  return (
+
+  // Check basic attributes first
+  const basicMatch = (
     config.usernameNames.some(n => name.includes(n)) ||
     config.usernameIds.some(i => id.includes(i)) ||
     config.emailNames.some(n => name.includes(n)) ||
@@ -641,6 +639,54 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
     isUsernamePlaceholder ||
     isOTPPlaceholder
   );
+
+  if (basicMatch) {
+    return true;
+  }
+
+  // Enhanced contextual text analysis for Steam-style forms
+  const candidateTexts: string[] = [];
+  const container = element.parentElement;
+
+  if (container) {
+    // Check all siblings within the container
+    const siblings = Array.from(container.children);
+    siblings.forEach(sibling => {
+      if (sibling !== element && sibling.textContent) {
+        candidateTexts.push(sibling.textContent.trim().toLowerCase());
+      }
+    });
+
+    // Check first children of the container
+    const firstChildren = Array.from(container.children).slice(0, 3);
+    firstChildren.forEach(child => {
+      if (child.textContent) {
+        candidateTexts.push(child.textContent.trim().toLowerCase());
+      }
+    });
+
+    // Check container's own text content
+    if (container.textContent) {
+      candidateTexts.push(container.textContent.trim().toLowerCase());
+    }
+  }
+
+  // Steam-style detection regex
+  const steamUsernamePattern = /sign\s+in\s+with\s+account\s+name|account\s+name/i;
+
+  // Check if any candidate text matches Steam pattern
+  for (const text of candidateTexts) {
+    if (steamUsernamePattern.test(text)) {
+      return true;
+    }
+  }
+
+  // OTP field detection (removed sensitive field data logging)
+  logDebug('Checking OTP field indicators');
+  // Field ID checked (removed sensitive ID logging)
+  logDebug('Field ID checked for OTP indicators');
+  
+  return false;
 }
 
 /**
@@ -1360,7 +1406,7 @@ function detectAutofillFields(): AutofillField[] {
 
   // Enhanced placeholder patterns for better detection
   const placeholderPatterns = {
-    name: /username|user name|login|account|identifier|sign in|signin|user id|user-id|userid/i,
+    name: /username|user name|login|account|account name|identifier|sign in|signin|user id|user-id|userid/i,
     email: /email|e-mail|mail|@|example@|your email|enter email|email address/i,
     password: /password|pass|pwd|enter password|your password|sign in password|signin password/i,
     otp: /code|otp|verification|auth|security|2fa|mfa|pin|token|one-time|6 digit|6-digit|enter code/i
@@ -1507,6 +1553,86 @@ function detectAutofillFields(): AutofillField[] {
           fieldType = "password";
         } else if (placeholderPatterns.otp.test(labelText)) {
           fieldType = "otp";
+        }
+      }
+
+      // Check aria-labelledby reference
+      if (!fieldType) {
+        const labelledBy = element.getAttribute('aria-labelledby');
+        if (labelledBy) {
+          const ariaLabelEl = document.getElementById(labelledBy);
+          const ariaLabelText = ariaLabelEl?.textContent?.toLowerCase() || '';
+          if (ariaLabelText) {
+            if (placeholderPatterns.name.test(ariaLabelText)) {
+              fieldType = 'name';
+            } else if (placeholderPatterns.email.test(ariaLabelText)) {
+              fieldType = 'email';
+            } else if (placeholderPatterns.password.test(ariaLabelText)) {
+              fieldType = 'password';
+            } else if (placeholderPatterns.otp.test(ariaLabelText)) {
+              fieldType = 'otp';
+            }
+          }
+        }
+      }
+
+      // Inspect nearby sibling/parent text (common on sites using div labels)
+      if (!fieldType) {
+        const container = element.parentElement;
+        const candidateTexts: string[] = [];
+        if (container) {
+          // Check previous sibling
+          const prevSibling = element.previousElementSibling as HTMLElement | null;
+          const labelSibling = prevSibling?.textContent?.toLowerCase() || '';
+          if (labelSibling) candidateTexts.push(labelSibling);
+
+          // Check all siblings in the container (Steam-style)
+          const siblings = Array.from(container.children) as HTMLElement[];
+          for (const sibling of siblings) {
+            if (sibling !== element && sibling.textContent) {
+              const siblingText = sibling.textContent.toLowerCase().trim();
+              if (siblingText && siblingText.length > 0) {
+                candidateTexts.push(siblingText);
+              }
+            }
+          }
+
+          // Some UIs place the label as a first child of the container
+          const firstChild = container.firstElementChild as HTMLElement | null;
+          const firstChildText = firstChild?.textContent?.toLowerCase() || '';
+          if (firstChild && firstChild !== element && firstChildText) {
+            candidateTexts.push(firstChildText);
+          }
+
+          // Fallback to container text (filtered) if short
+          const containerText = (container.textContent || '').toLowerCase();
+          if (containerText) {
+            // Avoid very long text blocks; keep concise hints
+            const trimmed = containerText.replace(/\s+/g, ' ').trim();
+            if (trimmed.length > 0 && trimmed.length <= 80) {
+              candidateTexts.push(trimmed);
+            }
+          }
+        }
+
+        // Check all candidate texts for field type patterns
+        for (const candidateText of candidateTexts) {
+          if (candidateText && candidateText.length > 0) {
+            // Enhanced Steam-style detection
+            if (/sign\s+in\s+with\s+account\s+name|account\s+name/i.test(candidateText) || placeholderPatterns.name.test(candidateText)) {
+              fieldType = 'name';
+              break;
+            } else if (placeholderPatterns.email.test(candidateText)) {
+              fieldType = 'email';
+              break;
+            } else if (placeholderPatterns.password.test(candidateText)) {
+              fieldType = 'password';
+              break;
+            } else if (placeholderPatterns.otp.test(candidateText)) {
+              fieldType = 'otp';
+              break;
+            }
+          }
         }
       }
     }
