@@ -675,26 +675,65 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     userSelect: 'none'
   });
 
-  // Positionner le champ parent en relatif si nécessaire
-  const fieldStyle = window.getComputedStyle(field);
-  if (fieldStyle.position === 'static') {
-    field.style.position = 'relative';
-  }
-
-  // Créer un conteneur si nécessaire
-  let container = field.parentElement;
-  if (!container || container.style.position !== 'relative') {
+  // Créer/adapter un conteneur sans casser les mises en page flex (.input-group)
+  let container = field.parentElement as HTMLElement | null;
+  if (container) {
+    const cs = window.getComputedStyle(container);
+    // Ne pas créer de wrapper inutile; rendre le parent positionné pour l'icône
+    if (cs.position === 'static') {
+      container.style.position = 'relative';
+    }
+  } else {
+    // Fallback: créer un conteneur positionné, compatible avec flex
     container = document.createElement('div');
     container.style.position = 'relative';
-    container.style.display = 'inline-block';
-    container.style.width = '100%';
+    container.style.display = 'block';
+    // Ne pas forcer width:100%; laisser le flex parent gérer l'espace
+    container.style.flex = '1 1 auto';
+    container.style.minWidth = '0';
 
     field.parentNode?.insertBefore(container, field);
     container.appendChild(field);
+    // S'assurer que le champ occupe toute la largeur du conteneur
+    (field as HTMLElement).style.width = '100%';
+    (field as HTMLElement).style.boxSizing = 'border-box';
   }
 
-  // Ajouter l'icône au conteneur
-  container.appendChild(icon);
+  // Ajouter l'icône au conteneur (position absolue, n'affecte pas le flux)
+  container!.appendChild(icon);
+
+  // Adapter la position si un toggler .input-group-text est présent (éviter le chevauchement)
+  try {
+    const inputGroup = field.closest('.input-group') as HTMLElement | null;
+    let togglerWidth = 0;
+    if (inputGroup) {
+      const togglers = Array.from(inputGroup.querySelectorAll('.input-group-text')) as HTMLElement[];
+      if (togglers.length > 0) {
+        // Prendre le dernier toggler (souvent celui à droite)
+        const lastToggler = togglers[togglers.length - 1];
+        togglerWidth = lastToggler.offsetWidth || 0;
+      }
+    }
+
+    if (togglerWidth > 0) {
+      // Décaler l'icône vers la gauche de la largeur du toggler + marge
+      icon.style.right = `${togglerWidth + 8}px`;
+      // Ajouter un padding-right pour éviter que le texte ne passe sous l'icône
+      const iconPad = 16 + 8; // largeur icône + marge
+      (field as HTMLElement).style.paddingRight = `${iconPad + togglerWidth + 4}px`;
+      (field as HTMLElement).style.boxSizing = 'border-box';
+    } else {
+      // Sans toggler, simplement ajouter un léger padding pour l'icône
+      const iconPad = 16 + 8;
+      (field as HTMLElement).style.paddingRight = `${iconPad}px`;
+      (field as HTMLElement).style.boxSizing = 'border-box';
+    }
+  } catch (e) {
+    // En cas d'échec du calcul, appliquer un padding par défaut
+    const iconPad = 16 + 8;
+    (field as HTMLElement).style.paddingRight = `${iconPad}px`;
+    (field as HTMLElement).style.boxSizing = 'border-box';
+  }
   inlineButtons.add(icon);
 
   // Rendre l'icône focusable pour éviter qu'elle disparaisse lors du clic

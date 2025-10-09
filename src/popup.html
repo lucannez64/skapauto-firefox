@@ -517,6 +517,45 @@
       font-weight: 600;
       color: var(--text-color);
     }
+
+    /* Icon sizing to avoid layout shifts in buttons and labels */
+    button i,
+    .button-group button i,
+    #select-file-btn i,
+    #refreshBtn i,
+    #classifyFieldsBtn i,
+    .site i,
+    .username i,
+    .action-section h2 i {
+      width: 1em;
+      min-width: 1em;
+      display: inline-block;
+      line-height: 1;
+      vertical-align: middle;
+    }
+
+    /* Ensure buttons consistently layout icon + text without stretching */
+    .button-group button,
+    #select-file-btn,
+    #refreshBtn,
+    #classifyFieldsBtn,
+    .actions button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    /* Favicon images inside site name remain fixed-size and aligned */
+    .site img {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+      object-fit: contain;
+      flex-shrink: 0;
+      margin-right: 10px;
+      vertical-align: middle;
+    }
     
     .hidden {
       display: none;
@@ -574,4 +613,4 @@
   
   <script src="popup.js" type="module"></script>
 </body>
-</html> 
+</html>
