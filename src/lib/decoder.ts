@@ -299,7 +299,6 @@ export function uuidToStr(uuid: Uuid): string {
       uuidBytes2[i] = uuidBytes[i];
     }
     const uuidObj = new Uuid(uuidBytes2);
-    console.log("uuidObj:", uuidObj);
     return uuidObj.toString();
   } catch (e) {
     console.error("Erreur lors de la conversion de l'UUID en chaîne:", e);

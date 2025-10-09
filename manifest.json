@@ -1,13 +1,11 @@
 {
   "manifest_version": 2,
   "name": "SkapAuto Password Manager",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Gestionnaire de mots de passe automatique pour Skap",
   "permissions": [
     "storage",
     "activeTab",
-    "tabs",
-    "cookies",
     "idle",
     "https://skap.klyt.eu/*"
   ],
@@ -20,20 +18,22 @@
     "default_icon": "icons/skap.ico"
   },
   "background": {
-    "scripts": ["background.js"]
+    "scripts": ["background.js"],
+    "persistent": false
   },
   "content_scripts": [
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
-      "run_at": "document_end"
+      "run_at": "document_end",
+      "all_frames": false
     }
   ],
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
   },
-  "content_security_policy": "script-src 'self'; object-src 'self'",
+  "content_security_policy": "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https://www.google.com https://*.gstatic.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src https://skap.klyt.eu; form-action 'none'; frame-ancestors 'none'; object-src 'none'; base-uri 'none';",
   "browser_specific_settings": {
     "gecko": {
       "id": "skap@klyt.eu",

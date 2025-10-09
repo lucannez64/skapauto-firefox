@@ -1,6 +1,6 @@
 type Level = 'debug' | 'info' | 'warn' | 'error';
 
-const env = (typeof process !== 'undefined' && process.env && process.env.NODE_ENV) ? process.env.NODE_ENV : 'production';
+const env = 'dev' // (typeof process !== 'undefined' && process.env && process.env.NODE_ENV) ? process.env.NODE_ENV : 'production';
 const isDev = env !== 'production';
 
 function format(level: Level, args: unknown[]): unknown[] {

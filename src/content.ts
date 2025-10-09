@@ -1,7 +1,14 @@
 // Script de contenu injecté dans les pages web
-console.log('🔥 SkapAuto content script chargé (Bitwarden-like mode)');
-console.log('🔥 Content script URL:', window.location.href);
-console.log('🔥 Content script timestamp:', new Date().toISOString());
+// SkapAuto content script loaded (removed sensitive URL logging)
+
+// Marquer que le script de contenu est chargé
+(window as any).skapAutoContentScriptLoaded = true;
+
+// Importer les fonctions de logging
+import { info as logInfo, warn as logWarn, error as logError, debug as logDebug } from './lib/logger';
+
+logInfo('SkapAuto content script loaded (Bitwarden-like mode)');
+logInfo('Content script initialization started');
 
 // Interface pour les champs d'autofill
 interface AutofillField {
@@ -341,6 +348,41 @@ const siteConfig = {
   }
 };
 
+// Security utility functions for input sanitization
+function sanitizeHTML(input: string): string {
+  const div = document.createElement('div');
+  div.textContent = input;
+  return div.innerHTML;
+}
+
+function sanitizeAttribute(input: string): string {
+  return input.replace(/[<>"'&]/g, (match) => {
+    const entities: { [key: string]: string } = {
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#x27;',
+      '&': '&amp;'
+    };
+    return entities[match];
+  });
+}
+
+function validateURL(url: string): boolean {
+  try {
+    const parsedUrl = new URL(url);
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function secureSetTimeout(callback: () => void, delay: number): number {
+  // Validate delay to prevent excessive timeouts
+  const safeDelay = Math.max(0, Math.min(delay, 300000)); // Max 5 minutes
+  return window.setTimeout(callback, safeDelay);
+}
+
 // État pour l'interface utilisateur inline (Bitwarden-like)
 let inlineButtons: Set<HTMLElement> = new Set();
 let activePopup: HTMLElement | null = null;
@@ -353,10 +395,11 @@ let otpAutofillAttempted = false;
 // Créer un élément input file invisible
 const fileInput = document.createElement('input');
 fileInput.type = 'file';
-fileInput.style.opacity = '2';
+fileInput.style.opacity = '0';
 fileInput.style.position = 'absolute';
 fileInput.style.left = '-1000px';
 fileInput.style.top = '-1000px';
+fileInput.style.pointerEvents = 'none';
 document.body.appendChild(fileInput);
 
 // Gérer la sélection de fichier
@@ -364,12 +407,43 @@ fileInput.addEventListener('change', (event) => {
   const input = event.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
     const file = input.files[0];
+    
+    // Validation de sécurité du fichier côté client
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxFileSize) {
+      logError('Fichier trop volumineux (max 10MB)');
+      showNotification('Fichier trop volumineux (maximum 10MB)', 'error');
+      return;
+    }
+    
+    // Validation du nom de fichier
+    if (!/^[a-zA-Z0-9._-]+$/.test(file.name) || file.name.length > 255) {
+      logError('Nom de fichier invalide');
+      showNotification('Nom de fichier invalide', 'error');
+      return;
+    }
+    
     const reader = new FileReader();
 
     reader.onload = (e) => {
       if (e.target && e.target.result) {
+        // Validation du résultat de lecture
+        const result = e.target.result.toString();
+        if (!result.startsWith('data:')) {
+          logError('Format de fichier invalide');
+          showNotification('Format de fichier invalide', 'error');
+          return;
+        }
+        
         // Extraire les données en base64
-        const base64Data = e.target.result.toString().split(',')[1];
+        const base64Data = result.split(',')[1];
+        
+        // Validation des données base64
+        if (!base64Data || !/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+          logError('Données de fichier corrompues');
+          showNotification('Données de fichier corrompues', 'error');
+          return;
+        }
 
         // Envoyer les données directement au background script
         browser.runtime.sendMessage({
@@ -381,6 +455,11 @@ fileInput.addEventListener('change', (event) => {
         });
       }
     };
+    
+    reader.onerror = () => {
+      logError('Erreur lors de la lecture du fichier');
+      showNotification('Erreur lors de la lecture du fichier', 'error');
+    };
 
     reader.readAsDataURL(file);
   }
@@ -391,7 +470,8 @@ fileInput.addEventListener('change', (event) => {
 // Initialiser le script dès le chargement
 (async () => {
   try {
-    console.log('🚀 SkapAuto Extension: Starting initialization...');
+    // Extension initialization started (removed sensitive logging)
+  logInfo('SkapAuto Extension: Starting initialization...');
     
     // Setup field adorners and events (Bitwarden-like)
     attachInlineIcons();
@@ -406,13 +486,15 @@ fileInput.addEventListener('change', (event) => {
     setupFormSubmissionDetection();
 
     // Additional delay for dynamic Shadow DOM creation
-    setTimeout(() => {
-      console.log('🔍 Running delayed Shadow DOM detection...');
+    secureSetTimeout(() => {
+      // Running delayed Shadow DOM detection (removed sensitive logging)
+    logDebug('Running delayed Shadow DOM detection...');
       attachInlineIcons();
       setupShadowDOMObservers();
     }, 2000);
 
-    console.log('✅ SkapAuto Extension: Initialization complete');
+    // Extension initialization complete (removed sensitive logging)
+    logInfo('SkapAuto Extension: Initialization complete');
   } catch (error) {
     console.error('❌ SkapAuto Extension: Initialization error:', error);
   }
@@ -422,11 +504,13 @@ fileInput.addEventListener('change', (event) => {
  * Attache des icônes inline aux champs de saisie (style Bitwarden)
  */
 function attachInlineIcons(root: ParentNode = document): void {
-  console.log('🎯 attachInlineIcons called with root:', root);
+  // attachInlineIcons called (removed sensitive logging)
+  logDebug('attachInlineIcons called');
   
   // Use Shadow DOM aware detection
   const allInputs = getAllInputElementsIncludingShadowDOM(root as any);
-  console.log(`🎯 Found ${allInputs.length} total inputs (including Shadow DOM)`);
+  // Found inputs (removed sensitive logging)
+  logDebug(`Found ${allInputs.length} total inputs (including Shadow DOM)`);
   
   // Filter for relevant input types
   const inputs = allInputs.filter(el => {
@@ -434,7 +518,8 @@ function attachInlineIcons(root: ParentNode = document): void {
     return ['text', 'email', 'password', 'tel', ''].includes(typeAttr) || el.tagName.toLowerCase() === 'textarea';
   });
 
-  console.log(`🎯 Filtered to ${inputs.length} relevant inputs:`, inputs);
+  // Filtered inputs (removed sensitive logging)
+  logDebug(`Filtered to ${inputs.length} relevant inputs`);
 
   inputs.forEach((el) => {
     if (!isVisibleElement(el as HTMLElement)) return;
@@ -454,12 +539,14 @@ function attachInlineIcons(root: ParentNode = document): void {
       ac === 'new-password' ||
       isFieldCandidate(el);
 
-    console.log('🎯 Processing input:', el, 'isCandidate:', isCandidate);
+    // Processing input (removed sensitive element logging)
+    logDebug('Processing input element');
 
     if (isCandidate) {
       attachFieldIcon(el);
       el.setAttribute('data-skap-adorned', 'true');
-      console.log(el)
+      // Element processed (removed sensitive element logging)
+        logDebug('Element processed for icon attachment');
       // Ajouter les événements de focus
       el.addEventListener('focus', () => {
         lastFocusedField = el;
@@ -537,10 +624,10 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const isEmailPlaceholder = emailPlaceholderTerms.some(term => placeholder.includes(term));
   const isUsernamePlaceholder = usernamePlaceholderTerms.some(term => placeholder.includes(term));
   const isOTPPlaceholder = otpPlaceholderTerms.some(term => placeholder.includes(term));
-  console.log( config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i)));
-  console.log(name);
-  console.log(id);
+  // OTP field detection (removed sensitive field data logging)
+  logDebug('Checking OTP field indicators');
+  // Field ID checked (removed sensitive ID logging)
+  logDebug('Field ID checked for OTP indicators');
   return (
     config.usernameNames.some(n => name.includes(n)) ||
     config.usernameIds.some(i => id.includes(i)) ||
@@ -566,7 +653,7 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
   // Créer l'icône
   const icon = document.createElement('div');
   icon.className = 'skap-field-icon';
-  icon.innerHTML = isOTP ? '🔐' : '🔑'; // Icône différente pour OTP
+  icon.textContent = isOTP ? '🔐' : '🔑'; // Icône différente pour OTP - utilise textContent au lieu d'innerHTML
 
   // Styles pour l'icône
   Object.assign(icon.style, {
@@ -682,23 +769,28 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
 async function getMatchingCredentialsByETld(): Promise<Credential[]> {
   try {
     const response = await browser.runtime.sendMessage({ action: 'getPasswords' });
-    console.log(response);
+    // Response received (removed sensitive response logging)
+    logDebug('Password response received from background script');
     if (response.success && response.passwords) {
       const currentHostname = window.location.hostname;
       // Filtrer les identifiants qui correspondent au domaine actuel
-      console.log(currentHostname);
+      // Current hostname processed (removed sensitive hostname logging)
+      logDebug('Current hostname processed for credential filtering');
       const t = response.passwords.filter((cred: Credential) => {
-        console.log(cred.url);
+        // Credential URL processed (removed sensitive URL logging)
+        logDebug('Processing credential URL for domain matching');
         if (!cred.url) return false;
         try {
           const credDomain = cred.url;
-          console.log(cred.url);
+          // Credential domain processed (removed sensitive URL logging)
+          logDebug('Credential domain processed for matching');
           return credDomain === currentHostname || currentHostname.endsWith('.' + credDomain);
         } catch {
           return false;
         }
       });
-      console.log(t);
+      // Filtered credentials processed (removed sensitive credential logging)
+      logDebug('Filtered credentials processed for current domain');
       return t;
     }
     return [];
@@ -1556,9 +1648,15 @@ function setupMutationObserver(): void {
 
 
 
-// Écouter les messages du background
+// Écouter les messages du background script
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Message reçu dans le content script:', message);
+  // Validation de sécurité - vérifier que le message provient du background script
+  if (!sender.id || sender.id !== browser.runtime.id) {
+    console.warn('Message rejeté - origine non autorisée:', sender);
+    return false;
+  }
+  
+  console.log('🔥 Message reçu dans content script:', message);
   // Traiter les différents types de messages
   switch (message.action) {
     case 'fillPassword':
@@ -1590,21 +1688,39 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'injectFile':
       console.log('Injecting file selector');
-      // Informer l'utilisateur qu'il doit interagir avec l'élément
-      showNotification('Veuillez cliquer sur la page pour activer le sélecteur de fichier', 'info');
+      logInfo('Tentative d\'injection du sélecteur de fichier');
+      
+      try {
+        // Informer l'utilisateur qu'il doit interagir avec l'élément
+        showNotification('Cliquez n\'importe où sur la page pour ouvrir le sélecteur de fichier', 'info');
 
-      // Créer un gestionnaire d'événement temporaire pour le clic utilisateur
-      const handleUserClick = () => {
-        // Une fois que l'utilisateur a cliqué, nous pouvons activer le sélecteur de fichier
-        fileInput.click();
-        // Nettoyer l'écouteur d'événement après utilisation
-        document.removeEventListener('click', handleUserClick);
-      };
+        // Créer un gestionnaire d'événement temporaire pour le clic utilisateur
+        const handleUserClick = (event: Event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          
+          logInfo('Clic utilisateur détecté, ouverture du sélecteur de fichier');
+          
+          // Utiliser directement le fileInput global
+          try {
+            fileInput.click();
+            logInfo('Sélecteur de fichier ouvert avec succès');
+          } catch (error) {
+            logError('Erreur lors de l\'ouverture du sélecteur de fichier:', error);
+          }
+          
+          // Nettoyer l'écouteur d'événement après utilisation
+          document.removeEventListener('click', handleUserClick, true);
+        };
 
-      // Ajouter l'écouteur d'événement pour attendre le clic de l'utilisateur
-      document.addEventListener('click', handleUserClick, { once: true });
+        // Ajouter l'écouteur d'événement pour attendre le clic de l'utilisateur
+        document.addEventListener('click', handleUserClick, { once: true, capture: true });
 
-      sendResponse({ success: true, message: 'En attente du clic utilisateur pour le sélecteur de fichier' });
+        sendResponse({ success: true, message: 'En attente du clic utilisateur pour le sélecteur de fichier' });
+      } catch (error) {
+        logError('Erreur lors de l\'injection du sélecteur de fichier:', error);
+        sendResponse({ success: false, message: 'Erreur lors de l\'injection du sélecteur de fichier' });
+      }
       break;
     case 'forceAutofill':
       // Dans le mode Bitwarden-like, afficher le popup au lieu d'autofill direct
@@ -1614,7 +1730,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
             // Trouver l'icône associée au champ focalisé
             const icon = document.querySelector(`[data-skap-field-id="${lastFocusedField?.id || 'unknown'}"]`) as HTMLElement;
             if (icon) {
-              showCredentialPopup(icon, credentials, lastFocusedField);
+              showCredentialPopup(icon, credentials, lastFocusedField!);
               sendResponse({ success: true, message: 'Popup d\'identifiants affiché' });
             } else {
               sendResponse({ success: false, message: 'Aucune icône trouvée pour le champ' });
@@ -1636,7 +1752,7 @@ browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
         getMatchingCredentialsByETld().then(credentials => {
           const otpCredentials = credentials.filter(cred => cred.otp);
           if (otpCredentials.length > 0) {
-            showOTPMiniBar(lastFocusedField, otpCredentials);
+            showOTPMiniBar(lastFocusedField!, otpCredentials);
             sendResponse({ success: true, message: 'Mini-barre OTP affichée' });
           } else {
             sendResponse({ success: false, message: 'Aucun identifiant avec OTP trouvé' });

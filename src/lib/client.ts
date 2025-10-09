@@ -15,6 +15,7 @@ import { xchacha20poly1305 } from "@noble/ciphers/chacha";
 import * as pkg from "uuid-tool";
 import { ml_kem1024 } from "@noble/post-quantum/ml-kem";
 import { randomBytes } from "@noble/post-quantum/utils.js";
+import { info as logInfo, error as logError, debug as logDebug } from "./logger";
 const { Uuid: UuidTool } = pkg;
 
 // Utiliser une URL relative pour que le proxy Vite fonctionne correctement
@@ -36,7 +37,8 @@ const fetchOptions: RequestInit = {
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "restoreSessionToken" && message.token) {
     sessionToken = message.token;
-    console.log("Token de session restauré:", sessionToken);
+    // Session token restored (removed sensitive data logging)
+    logInfo('Session token restored successfully');
     sendResponse({ success: true });
   }
   return true;
@@ -67,19 +69,28 @@ function setSessionToken(token: string) {
       token: token,
     }
   ).then((response) => {
-    console.log("Réponse du background script:", response);
+    // Background script response received (removed sensitive data logging)
+    logDebug('Background script response received');
   });
 }
 
 /**
- * Récupère le token de session
+ * Récupère le token de session de manière asynchrone
  * @returns Token de session
  */
-function getSessionToken() {
+async function getSessionToken(): Promise<string | null> {
   if (!sessionToken) {
-    browser.runtime.sendMessage({ action: "getSessionToken" }).then((response) => {
-      sessionToken = response.token;
-    });
+    try {
+      const response = await browser.runtime.sendMessage({ action: "getSessionToken" });
+      if (response.success && response.token) {
+        sessionToken = response.token;
+        return sessionToken;
+      }
+      return null;
+    } catch (error) {
+      logError('Erreur lors de la récupération du token de session:', error);
+      return null;
+    }
   } else {
     return sessionToken;
   }
@@ -189,7 +200,7 @@ function send(ep: EP, client: Client) {
 
 export async function create_pass(uuid: Uuid, pass: Password, client: Client) {
   if (!sessionToken) {
-    sessionToken = getSessionToken() ?? null;
+    sessionToken = await getSessionToken();
     if (!sessionToken) {
       return { result: null, error: "Token de session manquant" };
     }
@@ -235,9 +246,8 @@ export async function create_pass(uuid: Uuid, pass: Password, client: Client) {
 export async function auth(uuid: Uuid, client: Client) {
   try {
     // Étape 1: Obtenir le challenge
-    console.log("uuid:", uuid);
-    console.log("client:", client);
-    console.log(uuidToStr(uuid));
+    // UUID and client data (removed sensitive data logging)
+    logDebug('UUID and client data processed');
     const response = await fetch(
       API_URL + "challenge_json/" + uuidToStr(uuid),
       getRequestOptions()
@@ -245,19 +255,31 @@ export async function auth(uuid: Uuid, client: Client) {
     if (!response.ok) {
       return { result: null, client: null, error: response.statusText };
     }
-
     // Récupérer le challenge et le signer
     const challenge = await response.json();
     const challengeBytes = arraytoUint8Array(challenge);
 
+    // Debug: Vérifier client.di_q avant conversion
+    logDebug(`client.di_q type: ${typeof client.di_q}, length: ${client.di_q ? client.di_q.length : 'null'}`);
+    logDebug(`client.di_q instanceof Uint8Array: ${client.di_q instanceof Uint8Array}`);
+    logDebug(`client.di_q instanceof Array: ${Array.isArray(client.di_q)}`);
+
     const di_q = new Uint8Array(client.di_q);
 
-    console.log("di_q:", di_q);
-    console.log("challengeBytes:", challengeBytes);
+    // Debug: Vérifier la taille de di_q
+    logDebug(`di_q length: ${di_q.length}, expected: 4896`);
+    
+    if (di_q.length !== 4896) {
+      logError(`Erreur: di_q a une taille incorrecte: ${di_q.length} octets, attendu: 4896 octets`);
+      return { result: null, client: null, error: `Clé secrète di_q invalide: taille ${di_q.length} au lieu de 4896` };
+    }
+
+    // Challenge data processed (removed sensitive data logging)
+    logDebug('Challenge data processed successfully');
 
     // Importer dynamiquement ml-dsa87 pour la signature
     const { ml_dsa87 } = await import("@noble/post-quantum/ml-dsa");
-    const signature = ml_dsa87.sign(di_q, challengeBytes);
+    const signature = ml_dsa87.sign(challengeBytes, di_q);
     
     const signArray = arrayfrom(signature);
 
@@ -274,11 +296,13 @@ export async function auth(uuid: Uuid, client: Client) {
     // Récupérer le token de session
     try {
       const tokenResponse = await response2.json();
-      console.log("Token de session récupéré:", tokenResponse);
+      // Session token retrieved (removed sensitive data logging)
+    logInfo('Session token retrieved successfully');
       if (typeof tokenResponse === "string") {
         // Définir et sauvegarder le token de session
         setSessionToken(tokenResponse);
-        console.log("Token de session récupéré:", tokenResponse);
+        // Session token retrieved (removed sensitive data logging)
+        logInfo('Session token retrieved and stored successfully');
       } else {
         console.warn(
           "La réponse n'est pas un token de session valide:",
@@ -290,24 +314,40 @@ export async function auth(uuid: Uuid, client: Client) {
     }
 
     // Étape 3: Synchroniser avec le serveur
+    logDebug('Starting sync_json API call');
     const response3 = await fetch(
       API_URL + "sync_json/" + uuidToStr(uuid),
       getRequestOptions()
     );
 
     // Afficher les en-têtes de la requête pour le débogage
-    console.log("En-têtes de la requête sync_json:", getRequestOptions().headers);
+    // Request headers prepared (removed sensitive data logging)
+    logDebug('Request headers prepared for sync_json');
+    logDebug(`sync_json response status: ${response3.status}, ok: ${response3.ok}`);
 
     if (!response3.ok) {
-      return { result: null, shared: null, error: response3.statusText };
+      logError(`sync_json failed with status: ${response3.status}, statusText: ${response3.statusText}`);
+      return { result: null, client: null, error: response3.statusText };
     }
 
     // Décapsuler la clé partagée
+    logDebug('Parsing sync_json response');
     const result2 = Uint8Array.from(await response3.json());
+    logDebug(`sync_json result2 length: ${result2.length}`);
+    
+    logDebug('Importing ml_kem1024');
     const { ml_kem1024 } = await import("@noble/post-quantum/ml-kem");
+    
+    logDebug('Preparing ky_q for decapsulation');
     const ky_q = new Uint8Array(client.ky_q);
+    logDebug(`ky_q length: ${ky_q.length}`);
+    
+    logDebug('Starting decapsulation');
     const shared = ml_kem1024.decapsulate(result2, ky_q);
+    logDebug('Decapsulation successful');
+    
     client.secret = shared;
+    logDebug('Authentication completed successfully');
 
     return { result: response2, client: client, error: null };
   } catch (error) {
@@ -329,14 +369,19 @@ export async function get_all(
   try {
     // Vérifier que le token de session est disponible
     if (!sessionToken) {
-      console.warn("Token de session non disponible, l'authentification pourrait échouer");
-    } else {
-      console.log("Token de session utilisé pour get_all:", sessionToken);
+      sessionToken = await getSessionToken();
+      if (!sessionToken) {
+        return { passwords: [], error: "Token de session manquant" };
+      }
     }
+    
+    // Session token used for request (removed sensitive data logging)
+    logDebug('Session token used for get_all request');
 
     // Récupérer tous les mots de passe
     const options = getRequestOptions();
-    console.log("En-têtes de la requête send_all_json:", options.headers);
+    // Request headers prepared (removed sensitive data logging)
+    logDebug('Request headers prepared for send_all_json');
 
     const response = await fetch(
       API_URL + "send_all_json/" + uuidToStr(uuid),
@@ -397,7 +442,8 @@ export async function get_all(
 
         const cipher = xchacha20poly1305(key2, nonce);
         const finalDecrypted = cipher.decrypt(decryptedIntermediate);
-        console.log("finalDecrypted:", finalDecrypted);
+        // Decrypted data processed (removed sensitive data logging)
+    logDebug('Final decrypted data processed successfully');
         // Décoder le mot de passe
         const password = decodePassword(finalDecrypted);
         if (!password) {
@@ -407,7 +453,8 @@ export async function get_all(
 
 
         passwordsList.push(password);
-        console.log("Mot de passe déchiffré:", password);
+        // Password decrypted (removed sensitive data logging)
+        logDebug('Password decrypted successfully');
       } catch (error) {
         console.error("Erreur lors du déchiffrement d'un mot de passe:", error);
       }
@@ -450,19 +497,60 @@ export async function get_all(
 }
 
 /**
- * Charge un client à partir d'un fichier
+ * Charge un client à partir d'un fichier avec validation de sécurité
  * @param fileData Données du fichier client
- * @returns Client chargé
+ * @returns Client chargé ou null si invalide
  */
 export function loadClientFromFile(fileData: ArrayBuffer): ClientEx | null {
   try {
+    // Validation de la taille du fichier
+    if (fileData.byteLength === 0) {
+      logError('Fichier vide détecté');
+      return null;
+    }
+    
+    if (fileData.byteLength > 1024 * 1024) { // 1MB max pour un fichier client
+      logError('Fichier client trop volumineux');
+      return null;
+    }
+    
+    // Validation basique du format (vérifier les premiers octets)
+    const view = new Uint8Array(fileData);
+    if (view.length < 4) {
+      logError('Fichier client trop petit');
+      return null;
+    }
+    
     // Utiliser la fonction decodeClientEx pour décoder le client
-    const client = decodeClientEx(fileData);
-    console.log("Chargement du client à partir du fichier...");
-    console.log(client);
+    const client = decodeClientEx(fileData);    
+    if (!client) {
+      logError('Échec du décodage du client');
+      return null;
+    }
+    
+    // Validation supplémentaire de la structure du client
+    if (!client.id || !client.c) {
+      logError('Structure de client invalide - champs requis manquants (id ou c)');
+      return null;
+    }
+    
+    // Vérifier la structure de l'ID (CK)
+    if (!client.id.email || !client.id.ky_p || !client.id.di_p) {
+      logError('Structure de client invalide - champs ID manquants');
+      return null;
+    }
+    
+    // Vérifier la structure du client (Client)
+    if (!client.c.ky_p || !client.c.ky_q || !client.c.di_p || !client.c.di_q) {
+      logError('Structure de client invalide - champs Client manquants');
+      return null;
+    }
+    
+    // Client loading from file (removed sensitive data logging)
+    logInfo('Client loaded and validated successfully from file');
     return client;
   } catch (error) {
-    console.error("Erreur lors du chargement du client:", error);
+    logError("Erreur lors du chargement du client:", error);
     return null;
   }
 }

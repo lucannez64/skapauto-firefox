@@ -245,6 +245,41 @@ browser.storage.local.get('language').then((result) => {
 function checkSecureClient() {
   showStatus(t('checkingSecureClient'), 'info');
   
+  // Vérifier d'abord si un client a été chargé récemment
+  browser.storage.local.get(['clientLoaded', 'clientFileMetadata']).then((result) => {
+    if (result.clientLoaded && result.clientFileMetadata) {
+      // Un client a été chargé, mettre à jour l'interface
+      clientLoaded = true;
+      authBtn.disabled = false;
+      
+      // Afficher les informations du fichier
+      fileName.textContent = result.clientFileMetadata.name;
+      fileName.style.display = 'block';
+      
+      // Afficher des informations sur le fichier
+      const fileInfo = document.createElement('div');
+      fileInfo.className = 'file-info';
+      fileInfo.textContent = `${t('fileType')}: ${result.clientFileMetadata.type || t('unknown')}, ${t('fileSize')}: ${formatFileSize(result.clientFileMetadata.size)}`;
+      
+      // Supprimer l'info précédente si elle existe
+      const existingInfo = fileName.querySelector('.file-info');
+      if (existingInfo) {
+        fileName.removeChild(existingInfo);
+      }
+      
+      fileName.appendChild(fileInfo);
+      showStatus(t('clientLoadedSuccess'), 'success');
+      
+      // Continuer avec la vérification du client sécurisé pour l'authentification
+      checkSecureClientAuth();
+    } else {
+      // Pas de client chargé récemment, vérifier le client sécurisé
+      checkSecureClientAuth();
+    }
+  });
+}
+
+function checkSecureClientAuth() {
   browser.runtime.sendMessage(
     { action: 'checkSecureClient' }).then(
     (response) => {
@@ -255,13 +290,12 @@ function checkSecureClient() {
         authBtn.disabled = false;
         getPasswordsBtn.disabled = false;
         showStatus(t('activeSessionRecovered'), 'success');
-        
-        // Vérifier si des mots de passe sécurisés sont disponibles
-        checkSecurePasswords();
-      } else {
-        // Pas de client sécurisé, l'utilisateur doit charger son fichier client
+      } else if (!clientLoaded) {
+        // Pas de client sécurisé et pas de client chargé, l'utilisateur doit charger son fichier client
         showStatus(t('pleaseLoadClientFile'), 'info');
       }
+      // Toujours tenter de charger les mots de passe mis en cache
+      checkSecurePasswords();
     }
   );
 }
@@ -281,10 +315,22 @@ function checkSecurePasswords() {
 }
 
 // Vérifier si un client sécurisé est disponible au démarrage
-document.addEventListener('DOMContentLoaded', () => {
-  checkSecureClient();
+function initPopup() {
   updateTranslations();
-});
+  // Écouteurs pour les boutons
+  const classifyBtn = document.getElementById('classifyFieldsBtn');
+  if (classifyBtn) {
+    classifyBtn.addEventListener('click', classifyFields);
+  }
+  const refreshBtn = document.getElementById('refreshBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', refreshPasswords);
+  }
+  // Vérifier le client sécurisé
+  checkSecureClient();
+}
+
+document.addEventListener('DOMContentLoaded', initPopup);
 
 // Écouter les messages du background script
 browser.runtime.onMessage.addListener((message) => {
@@ -321,13 +367,16 @@ selectFileBtn.addEventListener('click', async () => {
   try {
     // Obtenir l'onglet actif
     const tabs = await browser.tabs.query({ active: true, currentWindow: true });
-    if (!tabs[0].id) {
-      throw new Error("Aucun onglet actif trouvé");
-    }
+    const activeTab = tabs[0];
     
-    await browser.tabs.sendMessage(tabs[0].id, {action: 'injectFile'})
-    // Afficher un message de chargement
+    if (!activeTab?.id) {
+      throw new Error('Aucun onglet actif trouvé');
+    }
+
+    // Envoyer le message au content script pour injecter le sélecteur de fichier
+    await browser.tabs.sendMessage(activeTab.id, { action: 'injectFile' });
     showStatus(t('selectingClientFile'), 'info');
+    
   } catch (error) {
     console.error(t('errorInjecting'), error);
     showStatus(`${t('errorInjecting')} ${error instanceof Error ? error.message : t('unknownError')}`, 'error');
@@ -353,20 +402,33 @@ function formatFileSize(bytes: number): string {
 authBtn.addEventListener('click', () => {
   // Afficher un message de chargement
   showStatus(t('authenticating'), 'info');
+  console.log('[SkapAuto:debug] Authentication button clicked, sending message to background');
 
   // Envoyer la demande d'authentification au background script
   browser.runtime.sendMessage(
     { action: 'authenticate' }).then(
     (response) => {
+      console.log('[SkapAuto:debug] Authentication response received in popup:', JSON.stringify(response));
+      
       if (response && response.success) {
+        console.log('[SkapAuto:debug] Authentication successful');
         authenticated = true;
         getPasswordsBtn.disabled = false;
         showStatus(t('authSuccess'), 'success');
       } else {
-        showStatus(`${t('authFailure')} ${response ? response.message : t('unknownError')}`, 'error');
+        console.log('[SkapAuto:debug] Authentication failed. Response:', response);
+        console.log('[SkapAuto:debug] Response message:', response ? response.message : 'no response');
+        console.log('[SkapAuto:debug] Response message type:', typeof (response ? response.message : 'no response'));
+        
+        const errorMessage = response ? response.message : t('unknownError');
+        console.log('[SkapAuto:debug] Final error message:', errorMessage);
+        showStatus(`${t('authFailure')} ${errorMessage}`, 'error');
       }
     }
-  );
+  ).catch(error => {
+    console.log('[SkapAuto:debug] Authentication promise rejected:', error);
+    showStatus(`${t('authFailure')} ${error.toString()}`, 'error');
+  });
 });
 
 // Gestionnaire d'événement pour le bouton de récupération des mots de passe
@@ -901,44 +963,7 @@ async function refreshPasswords() {
 }
 
 // Ajouter des écouteurs d'événements pour les boutons
-document.addEventListener('DOMContentLoaded', () => {
-  // Écouteur pour le bouton d'authentification
-  authBtn.addEventListener('click', () => {
-    browser.runtime.sendMessage({ action: 'authenticate' }).then((response) => {
-      if (response && response.success) {
-        authenticated = true;
-        getPasswordsBtn.disabled = false;
-        showStatus('Authentification réussie', 'success');
-      } else {
-        showStatus('Échec de l\'authentification', 'error');
-      }
-    });
-  });
-  
-  // Écouteur pour le bouton de récupération des mots de passe
-  getPasswordsBtn.addEventListener('click', () => {
-    browser.runtime.sendMessage({ action: 'getPasswords' }).then((response) => {
-      if (response && response.success && response.passwords) {
-        displayPasswords(response.passwords);
-        showStatus(`${response.passwords.length} mot(s) de passe récupéré(s)`, 'success');
-      } else {
-        showStatus('Échec de la récupération des mots de passe', 'error');
-      }
-    });
-  });
-  
-  // Écouteur pour le bouton de classification
-  const classifyBtn = document.getElementById('classifyFieldsBtn');
-  if (classifyBtn) {
-    classifyBtn.addEventListener('click', classifyFields);
-  }
-  
-  // Écouteur pour le bouton de rafraîchissement
-  const refreshBtn = document.getElementById('refreshBtn');
-  if (refreshBtn) {
-    refreshBtn.addEventListener('click', refreshPasswords);
-  }
-});
+// Les écouteurs d'événements sont désormais configurés dans initPopup() pour éviter les doublons
 
 // Exporter une fonction vide pour que le bundler ne se plaigne pas
-export {}; 
+export {};

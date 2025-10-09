@@ -100,26 +100,51 @@ function jsonReviver(key: string, value: any): any {
 }
 
 export async function setEncrypted(keyName: string, obj: unknown): Promise<void> {
+  // Validation des paramètres d'entrée
+  if (!keyName || typeof keyName !== 'string') {
+    throw new Error('Nom de clé invalide');
+  }
+  
   const json = JSON.stringify(obj, jsonReplacer);
   const bytes = new TextEncoder().encode(json);
   const { iv, ct } = await encrypt(bytes);
   const payload = {
     iv: Array.from(iv),
     ct: Array.from(ct),
-    ts: Date.now()
+    ts: Date.now(),
+    version: 1 // Version pour la compatibilité future
   };
   await browser.storage.local.set({ [keyName]: payload });
 }
 
 export async function getDecrypted<T>(keyName: string): Promise<T | null> {
+  // Validation des paramètres d'entrée
+  if (!keyName || typeof keyName !== 'string') {
+    throw new Error('Nom de clé invalide');
+  }
+  
   const res = await browser.storage.local.get(keyName);
   const payload = res[keyName];
   if (!payload || !payload.iv || !payload.ct) return null;
+  
+  // Vérification de l'intégrité du payload
+  if (!Array.isArray(payload.iv) || !Array.isArray(payload.ct)) {
+    console.warn('Payload corrompu détecté pour', keyName);
+    await browser.storage.local.remove(keyName);
+    return null;
+  }
+  
   const iv = new Uint8Array(payload.iv);
   const ct = new Uint8Array(payload.ct);
   try {
     const pt = await decrypt(iv, ct);
     const json = new TextDecoder().decode(pt);
+    
+    // Validation supplémentaire du JSON avant parsing
+    if (!json || typeof json !== 'string' || json.length > 1000000) {
+      throw new Error('JSON invalide ou trop volumineux');
+    }
+    
     return JSON.parse(json, jsonReviver) as T;
   } catch (e) {
     console.warn('Decryption failed for', keyName, e);

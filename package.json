@@ -13,19 +13,19 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^3.3.3",
-    "@noble/ciphers": "^1.2.1",
-    "@noble/hashes": "^1.7.1",
-    "@noble/post-quantum": "^0.4.0",
-    "otpauth": "^9.3.6",
+    "@noble/ciphers": "^2.0.1",
+    "@noble/hashes": "^2.0.1",
+    "@noble/post-quantum": "^0.5.2",
+    "otpauth": "^9.4.1",
     "uuid-tool": "^2.0.3"
   },
   "devDependencies": {
-    "@types/firefox-webext-browser": "^120.0.0",
-    "typescript": "^5.0.0",
-    "esbuild": "^0.21.5",
-    "web-ext": "^7.9.0",
-    "eslint": "^8.57.0",
-    "@typescript-eslint/parser": "^7.0.0",
-    "@typescript-eslint/eslint-plugin": "^7.0.0"
+    "@types/firefox-webext-browser": "^120.0.5",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.37.0",
+    "typescript": "^5.9.3",
+    "web-ext": "^8.2.0"
   }
 }

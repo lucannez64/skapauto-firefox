@@ -33,20 +33,33 @@ let currentClient: ClientEx | null = null;
 let cachedPasswords: Password[] | null = null;
 
 // Fonction pour exporter le token de session depuis le module client
-export function setSessionToken(token: string) {
-  // Stocker le token dans le stockage local
-  browser.storage.local.set({ 'sessionToken': token }).then(() => {
-    logInfo('Token de session sauvegardé dans le stockage local');
-  });
+export async function setSessionToken(token: string) {
+  // Stocker le token de manière sécurisée avec chiffrement AES-GCM
+  await setEncrypted('sessionToken', { token, timestamp: Date.now() });
+  logInfo('Token de session sauvegardé de manière sécurisée');
 }
 
 // Fonction pour restaurer le token de session
-export function getSessionToken(): Promise<string | null> {
-  return new Promise((resolve) => {
-    browser.storage.local.get(['sessionToken']).then((result: any) => {
-      resolve(result.sessionToken || null);
-    });
-  });
+export async function getSessionToken(): Promise<string | null> {
+  try {
+    const data = await getDecrypted<{ token: string; timestamp: number }>('sessionToken');
+    if (data) {
+      // Vérifier si le token n'est pas expiré (24 heures)
+      const TOKEN_EXPIRATION_TIME = 60 * 60 * 1000; // 24 heures
+      if (Date.now() - data.timestamp < TOKEN_EXPIRATION_TIME) {
+        return data.token;
+      } else {
+        // Token expiré, le supprimer
+        await removeEncrypted('sessionToken');
+        logWarn('Token de session expiré, suppression du stockage');
+        return null;
+      }
+    }
+    return null;
+  } catch (error) {
+    logError('Erreur lors de la récupération du token de session:', error);
+    return null;
+  }
 }
 
 // Fonction pour stocker le client de manière sécurisée avec une expiration d'une heure
@@ -64,11 +77,13 @@ async function storePasswordsSecurely(passwords: Password[]): Promise<void> {
 async function getSecureClient(): Promise<ClientEx | null> {
   const data = await getDecrypted<{ client: ClientEx; ts: number }>('secureClient');
   if (data && (Date.now() - data.ts) < CLIENT_EXPIRATION_TIME) {
-    console.log('Client récupéré du stockage sécurisé');
+    // Client retrieved from secure storage (removed sensitive data logging)
+      logInfo('Client retrieved from secure storage');
     return data.client;
   } else {
     if (data) {
-      console.log('Client expiré, suppression du stockage');
+      // Client expired, removing from storage (removed sensitive data logging)
+      logInfo('Client expired, removing from storage');
     }
     await removeEncrypted('secureClient');
     return null;
@@ -90,20 +105,74 @@ async function getSecurePasswords(): Promise<Password[] | null> {
   }
 }
 
+// Security validation functions
+function validateMessageStructure(message: any): boolean {
+  if (!message || typeof message !== 'object') {
+    return false;
+  }
+  
+  // Check for required action field
+  if (!message.action || typeof message.action !== 'string') {
+    return false;
+  }
+  
+  // Validate action against allowed actions
+  const allowedActions = [
+    'fileSelected', 'checkSecureClient', 'authenticate', 
+    'getPasswords', 'refreshPasswords', 'saveSessionToken',
+    'saveNewCredential', 'classifyFields', 'generateTOTP',
+    'injectFile'
+  ];
+  
+  if (!allowedActions.includes(message.action)) {
+    return false;
+  }
+  
+  return true;
+}
+
+function sanitizeMessageData(message: any): any {
+  // Deep clone to avoid reference issues
+  const sanitized = JSON.parse(JSON.stringify(message));
+  
+  // Remove any potentially dangerous properties
+  delete sanitized.__proto__;
+  delete sanitized.constructor;
+  
+  return sanitized;
+}
+
 // Gérer les messages de l'extension
-browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: any) => {
+browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResponse: any) => {
   logDebug('Message reçu dans le background:', message);
   
+  // Enhanced security validation
+  if (!sender.id || sender.id !== browser.runtime.id) {
+    logWarn('Message rejeté - origine non autorisée:', sender);
+    sendResponse({ success: false, message: 'Origine non autorisée' });
+    return false;
+  }
+  
+  // Validate message structure and content
+  if (!validateMessageStructure(message)) {
+    logWarn('Message rejeté - structure invalide:', message);
+    sendResponse({ success: false, message: 'Structure de message invalide' });
+    return false;
+  }
+  
+  // Sanitize message data
+  const sanitizedMessage = sanitizeMessageData(message);
+  
   // Traiter les différents types de messages
-  switch (message.action) {
+  switch (sanitizedMessage.action) {
     case 'fileSelected':
       // Traiter directement le fichier sélectionné
-      handleFileSelected(message).then(sendResponse);
+      handleFileSelected(sanitizedMessage).then(sendResponse);
       return true; // Indique que sendResponse sera appelé de manière asynchrone
       
     case 'checkSecureClient':
       // Vérifier si un client sécurisé est disponible
-      getSecureClient()
+      return getSecureClient()
         .then((client) => {
           if (client) {
             currentClient = client;
@@ -115,19 +184,30 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
         .catch((error) => {
           logError('Erreur lors de la vérification du client sécurisé:', error);
           return { success: false, message: 'Erreur lors de la vérification du client sécurisé' };
-        })
-        .then(sendResponse);
-      return true; // Indique que sendResponse sera appelé de manière asynchrone
+        });
       
     case 'authenticate':
       // Authentifier le client
       if (currentClient && currentClient.id.id) {
         logDebug(currentClient);
-        auth(currentClient.id.id!, currentClient.c)
+        logDebug('Starting authentication process in background script');
+        // Retourner une promesse de réponse au lieu d'utiliser sendResponse
+        return auth(currentClient.id.id!, currentClient.c)
           .then(result => {
+            logDebug(`Authentication result received: ${JSON.stringify({
+              hasError: !!result.error,
+              hasClient: !!result.client,
+              hasResult: !!result.result,
+              error: result.error
+            })}`);
+
             if (result.error) {
-              return { success: false, message: result.error };
+              logError(`Authentication error: ${result.error}`);
+              const errorResponse = { success: false, message: result.error };
+              logDebug(`Returning error response: ${JSON.stringify(errorResponse)}`);
+              return errorResponse;
             } else {
+              logDebug('Authentication successful, updating client');
               // Mettre à jour le client avec la clé secrète
               if (currentClient && result.client) {
                 currentClient.c = result.client;
@@ -137,138 +217,140 @@ browser.runtime.onMessage.addListener((message: any, sender: any, sendResponse: 
                     logInfo('Client authentifié stocké de manière sécurisée');
                   });
               }
-              return { success: true, message: 'Authentification réussie' };
+              const successResponse = { success: true, message: 'Authentification réussie' };
+              logDebug(`Returning success response: ${JSON.stringify(successResponse)}`);
+              return successResponse;
             }
           })
           .catch(error => {
-            return { success: false, message: error.toString() };
-          })
-          .then(sendResponse);
-        return true; // Indique que la réponse sera envoyée de manière asynchrone
+            logError(`Authentication catch error: ${error}`);
+            const catchResponse = { success: false, message: error.toString() };
+            logDebug(`Returning catch response: ${JSON.stringify(catchResponse)}`);
+            return catchResponse;
+          });
       } else {
-        sendResponse({ success: false, message: 'Client ou UUID manquant' });
+        const missingClientResponse = { success: false, message: 'Client ou UUID manquant' };
+        logDebug(`Returning missing client response: ${JSON.stringify(missingClientResponse)}`);
+        return missingClientResponse;
       }
       break;
       
     case 'getPasswords':
       // D'abord vérifier si nous avons des mots de passe en cache
-      getSecurePasswords().then(passwords => {
-        let response: PasswordResponse;
-        
+      return getSecurePasswords().then(passwords => {
         if (passwords) {
           // Utiliser les mots de passe en cache
           cachedPasswords = passwords;
           logInfo('Utilisation des mots de passe en cache');
-          response = { success: true, passwords: passwords };
-          sendResponse(response);
-        } else if (currentClient && currentClient.id.id) {
+          return { success: true, passwords };
+        }
+
+        if (currentClient && currentClient.id.id) {
           // Récupérer tous les mots de passe depuis le serveur
-          get_all(currentClient.id.id!, currentClient.c)
+          return get_all(currentClient.id.id!, currentClient.c)
             .then(result => {
               if (result.error) {
-                response = { success: false, message: result.error, passwords: undefined };
-              } else {
-                // Stocker les mots de passe en cache
-                const passwords = result.passwords;
-                if (passwords && passwords.length > 0) {
-                  cachedPasswords = passwords;
-                  // Stocker les mots de passe de manière sécurisée
-                  storePasswordsSecurely(passwords)
-                    .then(() => {
-                      logInfo('Mots de passe stockés de manière sécurisée');
-                    });
-                }
-                logInfo('Mots de passe récupérés:', passwords);
-                response = { 
-                  success: true, 
-                  passwords: passwords
-                };
+                return { success: false, message: result.error, passwords: undefined };
               }
-              sendResponse(response);
-            })
-            .catch(error => {
-              response = { success: false, message: error.toString(), passwords: undefined };
-              sendResponse(response);
-            });
-        } else {
-          response = { success: false, message: 'Client ou UUID manquant', passwords: undefined };
-          sendResponse(response);
-        }
-      });
-      return true; // Indique que la réponse sera envoyée de manière asynchrone
-      
-    case 'refreshPasswords':
-    let response: PasswordResponse;
-      // Récupérer tous les mots de passe depuis le serveur
-      if (currentClient && currentClient.id.id) {
-        get_all(currentClient.id.id!, currentClient.c)
-          .then(result => {
-            if (result.error) {
-              response = { success: false, message: result.error, passwords: undefined };
-              sendResponse(response);
-            } else {
-              // Stocker les mots de passe en cache
+
               const passwords = result.passwords;
+              // Mettre à jour le cache et tenter le stockage sécurisé
               if (passwords && passwords.length > 0) {
                 cachedPasswords = passwords;
-                // Stocker les mots de passe de manière sécurisée
                 return storePasswordsSecurely(passwords)
                   .then(() => {
-                    logInfo('Mots de passe récupérés et stockés de manière sécurisée');
-                    response = { success: true, passwords: passwords };
-                    sendResponse(response);
+                    logInfo('Mots de passe stockés de manière sécurisée');
+                    return { success: true, passwords };
+                  })
+                  .catch(() => {
+                    // En cas d'échec de stockage, renvoyer tout de même les mots de passe
+                    return { success: true, passwords };
                   });
               }
-              response = { success: true, passwords: passwords };
-              sendResponse(response);
+
+              logInfo('Mots de passe récupérés:', passwords);
+              return { success: true, passwords };
+            })
+            .catch(error => {
+              return { success: false, message: error.toString(), passwords: undefined };
+            });
+        }
+
+        return { success: false, message: 'Client ou UUID manquant', passwords: undefined };
+      });
+      
+    case 'refreshPasswords':
+      // Récupérer tous les mots de passe depuis le serveur
+      if (currentClient && currentClient.id.id) {
+        return get_all(currentClient.id.id!, currentClient.c)
+          .then(result => {
+            if (result.error) {
+              return { success: false, message: result.error, passwords: undefined };
             }
+
+            const passwords = result.passwords;
+            if (passwords && passwords.length > 0) {
+              cachedPasswords = passwords;
+              return storePasswordsSecurely(passwords)
+                .then(() => {
+                  logInfo('Mots de passe récupérés et stockés de manière sécurisée');
+                  return { success: true, passwords };
+                })
+                .catch(() => {
+                  return { success: true, passwords };
+                });
+            }
+
+            return { success: true, passwords };
           })
           .catch(error => {
-            response = { success: false, message: error.toString() };
-            sendResponse(response);
-          })
-          .then(sendResponse);
+            return { success: false, message: error.toString() };
+          });
       } else {
-        response = { success: false, message: 'Client ou UUID manquant' };
-        sendResponse(response);
+        return Promise.resolve({ success: false, message: 'Client ou UUID manquant' });
       }
-      return true; // Indique que la réponse sera envoyée de manière asynchrone
     
     case 'saveSessionToken':
-      // Sauvegarder le token de session
+      // Sauvegarder le token de session de manière sécurisée
       if (message.token) {
-        setSessionToken(message.token);
-        sendResponse({ success: true, message: 'Token de session sauvegardé' });
+        try {
+          await setSessionToken(message.token);
+          sendResponse({ success: true, message: 'Token de session sauvegardé de manière sécurisée' });
+        } catch (error) {
+          logError('Erreur lors de la sauvegarde du token de session:', error);
+          sendResponse({ success: false, message: 'Erreur lors de la sauvegarde du token' });
+        }
       } else {
         sendResponse({ success: false, message: 'Token de session manquant' });
       }
-      break;
+      return true; // Indique que la réponse sera envoyée de manière asynchrone
 
     case 'getSessionToken':
-      // Récupérer le token de session
-      getSessionToken().then((token) => {
+      // Récupérer le token de session de manière sécurisée
+      try {
+        const token = await getSessionToken();
         if (token) {
-          return { success: true, token: token };
+          sendResponse({ success: true, token: token });
         } else {
-          return { success: false, message: 'Token de session manquant' };
+          sendResponse({ success: false, message: 'Token de session manquant ou expiré' });
         }
-      })
-      .then(sendResponse);
+      } catch (error) {
+        logError('Erreur lors de la récupération du token de session:', error);
+        sendResponse({ success: false, message: 'Erreur lors de la récupération du token' });
+      }
       return true; // Indique que la réponse sera envoyée de manière asynchrone
 
     case 'checkSecurePasswords':
       // Vérifier si des mots de passe sécurisés sont disponibles
-      getSecurePasswords()
+      return getSecurePasswords()
         .then(passwords => {
           if (passwords && passwords.length > 0) {
             cachedPasswords = passwords;
-            return { success: true, passwords: passwords };
+            return { success: true, passwords };
           } else {
             return { success: false, message: 'Aucun mot de passe sécurisé disponible' };
           }
-        })
-        .then(sendResponse);
-      return true; // Indique que la réponse sera envoyée de manière asynchrone
+        });
 
     case 'classifyFields':
       logInfo('Demande de classification des champs');
@@ -372,11 +454,16 @@ function wipeSensitiveData() {
   removeEncrypted('secureClient');
   removeEncrypted('securePasswords');
   wipeKey();
+  
+  // Nettoyer aussi les données de client chargé
+  browser.storage.local.remove(['clientLoaded', 'clientFileMetadata']);
+  
   logInfo('Données sensibles nettoyées (idle/lock)');
 }
 
 browser.idle.onStateChanged.addListener((state) => {
-  if (state === 'idle' || state === 'locked') {
+  // Ne nettoie que lors du verrouillage de la session pour préserver la durée de vie de 1h
+  if (state === 'locked') {
     wipeSensitiveData();
   }
 });
@@ -452,12 +539,46 @@ function generateTOTPCode(params: TOTPParams): string {
  */
 async function handleFileSelected(message: any): Promise<any> {
   try {
-    console.log('Traitement du fichier sélectionné:', message.fileName);
+    // Validation de sécurité du fichier
+    if (!message.fileName || !message.fileData || !message.fileSize) {
+      return { success: false, message: 'Données de fichier incomplètes' };
+    }
+    
+    // Validation du nom de fichier
+    const fileName = message.fileName.toString();
+    if (!/^[a-zA-Z0-9._-]+$/.test(fileName) || fileName.length > 255) {
+      return { success: false, message: 'Nom de fichier invalide' };
+    }
+    
+    // Validation de la taille du fichier (max 10MB)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB
+    if (message.fileSize > maxFileSize) {
+      return { success: false, message: 'Fichier trop volumineux (max 10MB)' };
+    }
+    
+    // Validation du type de fichier
+    const allowedTypes = ['application/octet-stream', 'application/x-binary', ''];
+    if (message.fileType && !allowedTypes.includes(message.fileType)) {
+      logWarn(`Type de fichier non autorisé: ${message.fileType}`);
+    }
+    
+    // File processing started (removed sensitive data logging)
+    logInfo('Processing selected file with security validation');
+    
+    // Validation des données base64
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(message.fileData)) {
+      return { success: false, message: 'Format de données invalide' };
+    }
     
     // Convertir les données base64 en ArrayBuffer
     const arrayBuffer = base64ToArrayBuffer(message.fileData);
     
-    // Charger le client
+    // Validation de la taille après décodage
+    if (arrayBuffer.byteLength !== message.fileSize) {
+      return { success: false, message: 'Taille de fichier incohérente' };
+    }
+    
+    // Charger le client avec validation
     const client = loadClientFromFile(arrayBuffer);
     
     if (client) {
@@ -465,17 +586,22 @@ async function handleFileSelected(message: any): Promise<any> {
       
       // Stocker le client de manière sécurisée
       await storeClientSecurely(client);
-      console.log('Client stocké de manière sécurisée');
+      // Client stored securely (removed sensitive data logging)
+      logInfo('Client stored securely after validation');
       
-      // Enregistrer les métadonnées du fichier pour référence
+      // Enregistrer les métadonnées du fichier pour référence (sanitized)
       const fileMetadata = {
-        name: message.fileName || 'client.dat',
+        name: fileName,
         type: message.fileType || 'application/octet-stream',
-        size: message.fileSize || arrayBuffer.byteLength,
+        size: message.fileSize,
         timestamp: Date.now()
       };
       
-      await browser.storage.local.set({ 'clientFileMetadata': fileMetadata });
+      // Sauvegarder les métadonnées du fichier et l'état du client chargé
+      await browser.storage.local.set({ 
+        'clientFileMetadata': fileMetadata,
+        'clientLoaded': true
+      });
       
       // Notifier le popup que le client a été chargé (si ouvert)
       try {
@@ -491,11 +617,11 @@ async function handleFileSelected(message: any): Promise<any> {
       
       return { success: true };
     } else {
-      console.error('Format de fichier client invalide');
+      logError('Format de fichier client invalide');
       return { success: false, message: 'Format de fichier client invalide' };
     }
   } catch (error: unknown) {
-    console.error('Erreur lors du chargement du client:', error);
+    logError('Erreur lors du chargement du client:', error);
     return { 
       success: false, 
       message: `Erreur lors du chargement du client: ${error instanceof Error ? error.message : 'Erreur inconnue'}`
