@@ -522,13 +522,32 @@ function attachInlineIcons(root: ParentNode = document): void {
   logDebug(`Filtered to ${inputs.length} relevant inputs`);
 
   inputs.forEach((el) => {
-    if (!isVisibleElement(el as HTMLElement)) return;
-    if (el.hasAttribute('data-skap-adorned')) return; // Éviter les doublons
-
     const typeAttr = (el.getAttribute('type') || '').toLowerCase();
-    if (typeAttr === 'checkbox' || typeAttr === 'radio' || typeAttr === 'file' || typeAttr === 'submit' || typeAttr === 'button') return;
-
     const ac = (el.getAttribute('autocomplete') || '').toLowerCase();
+    const id = (el.getAttribute('id') || '').toLowerCase();
+    const name = (el.getAttribute('name') || '').toLowerCase();
+    const cls = (el.getAttribute('class') || '').toLowerCase();
+
+    logDebug(`Inspecting input id='${id}' name='${name}' type='${typeAttr}' ac='${ac}' class='${cls}'`);
+
+    if (!isVisibleElement(el as HTMLElement)) {
+      logDebug(`Skipping id='${id}' — element not visible`);
+      return;
+    }
+
+    // If page re-render removed icon but left attribute, reattach
+    const parent = el.parentElement as HTMLElement | null;
+    const iconPresent = !!parent?.querySelector('.skap-field-icon');
+    if (el.hasAttribute('data-skap-adorned')) {
+      if (iconPresent) {
+        logDebug(`Skipping id='${id}' — already adorned and icon present`);
+        return; // avoid duplicates
+      } else {
+        logDebug(`Reattaching icon for id='${id}' — attribute present but icon missing`);
+        el.removeAttribute('data-skap-adorned');
+      }
+    }
+    if (typeAttr === 'checkbox' || typeAttr === 'radio' || typeAttr === 'file' || typeAttr === 'submit' || typeAttr === 'button') return;
 
     // Préférer seulement les champs candidats de connexion
     const isCandidate =
@@ -540,10 +559,11 @@ function attachInlineIcons(root: ParentNode = document): void {
       isFieldCandidate(el);
 
     // Processing input (removed sensitive element logging)
-    logDebug('Processing input element');
+    logDebug(`Processing input element id='${id}', isCandidate=${isCandidate}`);
 
     if (isCandidate) {
       attachFieldIcon(el);
+      logDebug(`Icon attached to id='${id}'`);
       el.setAttribute('data-skap-adorned', 'true');
       // Element processed (removed sensitive element logging)
         logDebug('Element processed for icon attachment');
@@ -563,6 +583,7 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const name = element.name.toLowerCase();
   const className = element.className.toLowerCase();
   const placeholder = element.placeholder.toLowerCase();
+  const autocomplete = (element.getAttribute('autocomplete') || '').toLowerCase();
 
   // Utiliser la configuration existante pour identifier les champs
   const config = siteConfig.whiteList.fields;
@@ -626,21 +647,29 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   const isOTPPlaceholder = otpPlaceholderTerms.some(term => placeholder.includes(term));
 
   // Check basic attributes first
-  const basicMatch = (
-    config.usernameNames.some(n => name.includes(n)) ||
-    config.usernameIds.some(i => id.includes(i)) ||
-    config.emailNames.some(n => name.includes(n)) ||
-    config.emailIds.some(i => id.includes(i)) ||
-    config.passwordNames.some(n => name.includes(n)) ||
-    config.passwordIds.some(i => id.includes(i)) ||
-    config.otpNames.some(n => name.includes(n)) ||
-    config.otpIds.some(i => id.includes(i)) ||
-    isEmailPlaceholder ||
-    isUsernamePlaceholder ||
-    isOTPPlaceholder
-  );
+  const matchFlags = {
+    usernameName: config.usernameNames.some(n => name.includes(n)),
+    usernameId: config.usernameIds.some(i => id.includes(i)),
+    emailName: config.emailNames.some(n => name.includes(n)),
+    emailId: config.emailIds.some(i => id.includes(i)),
+    passwordName: config.passwordNames.some(n => name.includes(n)),
+    passwordId: config.passwordIds.some(i => id.includes(i)),
+    otpName: config.otpNames.some(n => name.includes(n)),
+    otpId: config.otpIds.some(i => id.includes(i)),
+    emailPlaceholder: isEmailPlaceholder,
+    usernamePlaceholder: isUsernamePlaceholder,
+    otpPlaceholder: isOTPPlaceholder,
+    acUsername: autocomplete === 'username',
+    acEmail: autocomplete === 'email',
+    acPassword: autocomplete === 'current-password' || autocomplete === 'new-password'
+  };
+  const basicMatch = Object.values(matchFlags).some(Boolean);
+  const reasons: string[] = Object.entries(matchFlags)
+    .filter(([, v]) => v)
+    .map(([k]) => k);
 
   if (basicMatch) {
+    logDebug(`isFieldCandidate: YES for id='${id}' name='${name}' reasons=${reasons.join('|')}`);
     return true;
   }
 
@@ -677,6 +706,7 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   // Check if any candidate text matches Steam pattern
   for (const text of candidateTexts) {
     if (steamUsernamePattern.test(text)) {
+      logDebug(`isFieldCandidate: YES (steam-style) for id='${id}' via text='${text}'`);
       return true;
     }
   }
@@ -686,6 +716,7 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   // Field ID checked (removed sensitive ID logging)
   logDebug('Field ID checked for OTP indicators');
   
+  logDebug(`isFieldCandidate: NO for id='${id}' name='${name}' placeholder='${placeholder}' class='${className}' ac='${autocomplete}'`);
   return false;
 }
 
@@ -728,6 +759,13 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     // Ne pas créer de wrapper inutile; rendre le parent positionné pour l'icône
     if (cs.position === 'static') {
       container.style.position = 'relative';
+    }
+
+    // Avoid duplicate icon if one already exists
+    const existing = container.querySelector('.skap-field-icon');
+    if (existing) {
+      logDebug('attachFieldIcon: icon already exists, skipping append');
+      return;
     }
   } else {
     // Fallback: créer un conteneur positionné, compatible avec flex
