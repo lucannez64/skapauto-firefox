@@ -178,15 +178,13 @@ browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResp
   // Enhanced security validation
   if (!sender.id || sender.id !== browser.runtime.id) {
     logWarn('Message rejeté - origine non autorisée:', sender);
-    sendResponse({ success: false, message: 'Origine non autorisée' });
-    return false;
+    return { success: false, message: 'Origine non autorisée' };
   }
   
   // Validate message structure and content
   if (!validateMessageStructure(message)) {
     logWarn('Message rejeté - structure invalide:', message);
-    sendResponse({ success: false, message: 'Structure de message invalide' });
-    return false;
+    return { success: false, message: 'Structure de message invalide' };
   }
   
   // Sanitize message data
@@ -336,7 +334,7 @@ browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResp
             return { success: false, message: error.toString() };
           });
       } else {
-        return Promise.resolve({ success: false, message: 'Client ou UUID manquant' });
+        return { success: false, message: 'Client ou UUID manquant' };
       }
     
     case 'saveSessionToken':
@@ -344,30 +342,28 @@ browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResp
       if (message.token) {
         try {
           await setSessionToken(message.token);
-          sendResponse({ success: true, message: 'Token de session sauvegardé de manière sécurisée' });
+          return { success: true, message: 'Token de session sauvegardé de manière sécurisée' };
         } catch (error) {
           logError('Erreur lors de la sauvegarde du token de session:', error);
-          sendResponse({ success: false, message: 'Erreur lors de la sauvegarde du token' });
+          return { success: false, message: 'Erreur lors de la sauvegarde du token' };
         }
       } else {
-        sendResponse({ success: false, message: 'Token de session manquant' });
+        return { success: false, message: 'Token de session manquant' };
       }
-      return true; // Indique que la réponse sera envoyée de manière asynchrone
 
     case 'getSessionToken':
       // Récupérer le token de session de manière sécurisée
       try {
         const token = await getSessionToken();
         if (token) {
-          sendResponse({ success: true, token: token });
+          return { success: true, token: token };
         } else {
-          sendResponse({ success: false, message: 'Token de session manquant ou expiré' });
+          return { success: false, message: 'Token de session manquant ou expiré' };
         }
       } catch (error) {
         logError('Erreur lors de la récupération du token de session:', error);
-        sendResponse({ success: false, message: 'Erreur lors de la récupération du token' });
+        return { success: false, message: 'Erreur lors de la récupération du token' };
       }
-      return true; // Indique que la réponse sera envoyée de manière asynchrone
 
     case 'checkSecurePasswords':
       // Vérifier si des mots de passe sécurisés sont disponibles
@@ -399,15 +395,14 @@ browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResp
       if (message.params) {
         try {
           const code = generateTOTPCode(message.params);
-          sendResponse({ success: true, code: code });
+          return { success: true, code: code };
         } catch (error: any) {
           logError('Erreur lors de la génération du code TOTP:', error);
-          sendResponse({ success: false, message: error.toString() });
+          return { success: false, message: error.toString() };
         }
       } else {
-        sendResponse({ success: false, message: 'Paramètres TOTP manquants' });
+        return { success: false, message: 'Paramètres TOTP manquants' };
       }
-      break;
 
     case 'saveNewCredential':
       // Gère la sauvegarde d'un nouvel identifiant
@@ -416,7 +411,7 @@ browser.runtime.onMessage.addListener(async (message: any, sender: any, sendResp
       return true; // Indique que sendResponse sera appelé de manière asynchrone
 
     default:
-      sendResponse({ success: false, message: 'Action non reconnue' });
+      return { success: false, message: 'Action non reconnue' };
   }
 
   return true; // Indique que la réponse sera envoyée de manière asynchrone

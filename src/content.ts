@@ -10,6 +10,182 @@ import { info as logInfo, warn as logWarn, error as logError, debug as logDebug 
 logInfo('SkapAuto content script loaded (Bitwarden-like mode)');
 logInfo('Content script initialization started');
 
+// Injecte les styles du système de design SkapAuto pour l'UI inline
+function ensureDesignSystemStyles(): void {
+  if (document.getElementById('skapauto-design-system')) return;
+  const style = document.createElement('style');
+  style.id = 'skapauto-design-system';
+  style.textContent = `
+    .skapauto-theme {
+      --primary-color: #f2c3c2;
+      --primary-dark: #e6b5b4;
+      --success-color: #a7f3ae;
+      --success-dark: #96e09d;
+      --warning-color: #ced7e1;
+      --warning-dark: #bac2cb;
+      --error-color: #b00e0b;
+      --error-dark: #9c0c09;
+      --text-color: #1d1b21;
+      --text-light: #474b4f;
+      --card-bg: #ced7e1;
+      --border-radius: 10px;
+      --box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      --font-sans: 'Work Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+      --font-title: 'Raleway', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    }
+
+    .skap-field-icon {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--card-bg);
+      border-radius: 6px;
+      border: 1px solid var(--text-light);
+      user-select: none;
+      font-size: 12px;
+      color: var(--text-color);
+      transition: var(--transition);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+    .skap-field-icon:hover,
+    .skap-field-icon:focus-visible {
+      outline: none;
+      background-color: var(--warning-color);
+      border-color: var(--primary-dark);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+    }
+    .skap-field-icon--otp {
+      background-color: var(--warning-color);
+      border-color: var(--primary-color);
+    }
+
+    .skap-credential-popup {
+      position: absolute;
+      z-index: 10001;
+      min-width: 260px;
+      max-width: 380px;
+      max-height: 320px;
+      overflow-y: auto;
+      background-color: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      color: var(--text-color);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      animation: skap-fade-in 0.2s ease;
+    }
+    .skap-credential-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-weight: 600;
+      font-family: var(--font-title);
+      background-image: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      color: var(--text-color);
+    }
+    .skap-credential-list { padding: 6px 0; }
+    .skap-credential-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 12px;
+      cursor: pointer;
+      transition: var(--transition);
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .skap-credential-item:last-child { border-bottom: none; }
+    .skap-credential-item:hover,
+    .skap-credential-item:focus-visible { background-color: rgba(255,255,255,0.25); outline: none; }
+    .skap-credential-item .favicon { width: 18px; height: 18px; border-radius: 4px; flex-shrink: 0; }
+    .skap-credential-item .info { display: flex; flex-direction: column; min-width: 0; }
+    .skap-credential-item .username { font-weight: 600; color: var(--text-color); }
+    .skap-credential-item .description { font-size: 12px; color: var(--text-light); }
+
+    @keyframes skap-fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+    .skap-otp-mini-bar {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      background-color: var(--card-bg);
+      border: 1px solid rgba(0,0,0,0.08);
+      border-radius: var(--border-radius);
+      box-shadow: var(--box-shadow);
+      font-family: var(--font-sans);
+      z-index: 10002;
+      min-width: 260px;
+      max-width: 320px;
+      animation: skap-fade-in 0.2s ease;
+    }
+    .skap-otp-mini-bar .otp-header {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(0,0,0,0.08);
+      font-weight: 600;
+      font-family: var(--font-title);
+      background-image: linear-gradient(135deg, var(--warning-color), var(--warning-dark));
+      color: var(--text-color);
+      border-radius: var(--border-radius) var(--border-radius) 0 0;
+    }
+    .skap-otp-mini-bar .otp-icon { 
+      font-size: 16px; 
+      color: var(--text-color);
+    }
+    .skap-otp-mini-bar .info-text { 
+      flex: 1; 
+      color: var(--text-color);
+      font-size: 14px;
+    }
+    .skap-otp-mini-bar .otp-buttons {
+      padding: 6px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .skap-otp-mini-bar button {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background-color: transparent;
+      color: var(--text-color);
+      border: none;
+      padding: 10px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: left;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      font-family: var(--font-sans);
+    }
+    .skap-otp-mini-bar button:last-child { border-bottom: none; }
+    .skap-otp-mini-bar button:hover,
+    .skap-otp-mini-bar button:focus-visible { 
+      background-color: rgba(255,255,255,0.25); 
+      outline: none;
+    }
+    .skap-otp-mini-bar .otp-username {
+      font-weight: 600;
+      color: var(--text-color);
+    }
+    .skap-otp-mini-bar .otp-service {
+      font-size: 12px;
+      color: var(--text-light);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 // Interface pour les champs d'autofill
 interface AutofillField {
   element: HTMLInputElement | HTMLTextAreaElement;
@@ -488,7 +664,6 @@ fileInput.addEventListener('change', (event) => {
     // Additional delay for dynamic Shadow DOM creation
     secureSetTimeout(() => {
       // Running delayed Shadow DOM detection (removed sensitive logging)
-    logDebug('Running delayed Shadow DOM detection...');
       attachInlineIcons();
       setupShadowDOMObservers();
     }, 2000);
@@ -505,12 +680,10 @@ fileInput.addEventListener('change', (event) => {
  */
 function attachInlineIcons(root: ParentNode = document): void {
   // attachInlineIcons called (removed sensitive logging)
-  logDebug('attachInlineIcons called');
   
   // Use Shadow DOM aware detection
   const allInputs = getAllInputElementsIncludingShadowDOM(root as any);
   // Found inputs (removed sensitive logging)
-  logDebug(`Found ${allInputs.length} total inputs (including Shadow DOM)`);
   
   // Filter for relevant input types
   const inputs = allInputs.filter(el => {
@@ -519,7 +692,6 @@ function attachInlineIcons(root: ParentNode = document): void {
   });
 
   // Filtered inputs (removed sensitive logging)
-  logDebug(`Filtered to ${inputs.length} relevant inputs`);
 
   inputs.forEach((el) => {
     const typeAttr = (el.getAttribute('type') || '').toLowerCase();
@@ -528,10 +700,8 @@ function attachInlineIcons(root: ParentNode = document): void {
     const name = (el.getAttribute('name') || '').toLowerCase();
     const cls = (el.getAttribute('class') || '').toLowerCase();
 
-    logDebug(`Inspecting input id='${id}' name='${name}' type='${typeAttr}' ac='${ac}' class='${cls}'`);
 
     if (!isVisibleElement(el as HTMLElement)) {
-      logDebug(`Skipping id='${id}' — element not visible`);
       return;
     }
 
@@ -540,10 +710,8 @@ function attachInlineIcons(root: ParentNode = document): void {
     const iconPresent = !!parent?.querySelector('.skap-field-icon');
     if (el.hasAttribute('data-skap-adorned')) {
       if (iconPresent) {
-        logDebug(`Skipping id='${id}' — already adorned and icon present`);
         return; // avoid duplicates
       } else {
-        logDebug(`Reattaching icon for id='${id}' — attribute present but icon missing`);
         el.removeAttribute('data-skap-adorned');
       }
     }
@@ -556,17 +724,18 @@ function attachInlineIcons(root: ParentNode = document): void {
       ac === 'email' ||
       ac === 'current-password' ||
       ac === 'new-password' ||
+      ac === 'one-time-code' ||
+      ac === 'one-time-password' ||
+      ac === 'otp' ||
+      ac === 'totp' ||
       isFieldCandidate(el);
 
     // Processing input (removed sensitive element logging)
-    logDebug(`Processing input element id='${id}', isCandidate=${isCandidate}`);
 
     if (isCandidate) {
       attachFieldIcon(el);
-      logDebug(`Icon attached to id='${id}'`);
       el.setAttribute('data-skap-adorned', 'true');
       // Element processed (removed sensitive element logging)
-        logDebug('Element processed for icon attachment');
       // Ajouter les événements de focus
       el.addEventListener('focus', () => {
         lastFocusedField = el;
@@ -669,7 +838,11 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
     .map(([k]) => k);
 
   if (basicMatch) {
-    logDebug(`isFieldCandidate: YES for id='${id}' name='${name}' reasons=${reasons.join('|')}`);
+    return true;
+  }
+
+  // Détection directe des champs OTP via heuristiques dédiées
+  if (isOTPField(element)) {
     return true;
   }
 
@@ -706,17 +879,13 @@ function isFieldCandidate(element: HTMLInputElement | HTMLTextAreaElement): bool
   // Check if any candidate text matches Steam pattern
   for (const text of candidateTexts) {
     if (steamUsernamePattern.test(text)) {
-      logDebug(`isFieldCandidate: YES (steam-style) for id='${id}' via text='${text}'`);
       return true;
     }
   }
 
   // OTP field detection (removed sensitive field data logging)
-  logDebug('Checking OTP field indicators');
   // Field ID checked (removed sensitive ID logging)
-  logDebug('Field ID checked for OTP indicators');
   
-  logDebug(`isFieldCandidate: NO for id='${id}' name='${name}' placeholder='${placeholder}' class='${className}' ac='${autocomplete}'`);
   return false;
 }
 
@@ -729,28 +898,13 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
   
   // Créer l'icône
   const icon = document.createElement('div');
-  icon.className = 'skap-field-icon';
+  ensureDesignSystemStyles();
+  icon.className = 'skap-field-icon skapauto-theme';
   icon.textContent = isOTP ? '🔐' : '🔑'; // Icône différente pour OTP - utilise textContent au lieu d'innerHTML
 
-  // Styles pour l'icône
-  Object.assign(icon.style, {
-    position: 'absolute',
-    right: '8px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '16px',
-    height: '16px',
-    cursor: 'pointer',
-    zIndex: '10000',
-    fontSize: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: isOTP ? '#e6f3ff' : '#f0f0f0',
-    borderRadius: '3px',
-    border: isOTP ? '1px solid #4299e1' : '1px solid #ccc',
-    userSelect: 'none'
-  });
+  if (isOTP) {
+    icon.classList.add('skap-field-icon--otp');
+  }
 
   // Créer/adapter un conteneur sans casser les mises en page flex (.input-group)
   let container = field.parentElement as HTMLElement | null;
@@ -764,7 +918,6 @@ function attachFieldIcon(field: HTMLInputElement | HTMLTextAreaElement): void {
     // Avoid duplicate icon if one already exists
     const existing = container.querySelector('.skap-field-icon');
     if (existing) {
-      logDebug('attachFieldIcon: icon already exists, skipping append');
       return;
     }
   } else {
@@ -893,27 +1046,22 @@ async function getMatchingCredentialsByETld(): Promise<Credential[]> {
   try {
     const response = await browser.runtime.sendMessage({ action: 'getPasswords' });
     // Response received (removed sensitive response logging)
-    logDebug('Password response received from background script');
     if (response.success && response.passwords) {
       const currentHostname = window.location.hostname;
       // Filtrer les identifiants qui correspondent au domaine actuel
       // Current hostname processed (removed sensitive hostname logging)
-      logDebug('Current hostname processed for credential filtering');
       const t = response.passwords.filter((cred: Credential) => {
         // Credential URL processed (removed sensitive URL logging)
-        logDebug('Processing credential URL for domain matching');
         if (!cred.url) return false;
         try {
           const credDomain = cred.url;
           // Credential domain processed (removed sensitive URL logging)
-          logDebug('Credential domain processed for matching');
           return credDomain === currentHostname || currentHostname.endsWith('.' + credDomain);
         } catch {
           return false;
         }
       });
       // Filtered credentials processed (removed sensitive credential logging)
-      logDebug('Filtered credentials processed for current domain');
       return t;
     }
     return [];
@@ -935,23 +1083,12 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
 
   // Créer le popup
   const popup = document.createElement('div');
-  popup.className = 'skap-credential-popup';
+  ensureDesignSystemStyles();
+  popup.className = 'skap-credential-popup skapauto-theme';
+  popup.setAttribute('role', 'listbox');
 
-  // Styles du popup
-  Object.assign(popup.style, {
-    position: 'absolute',
-    backgroundColor: '#ffffff',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-    zIndex: '10001',
-    minWidth: '250px',
-    maxWidth: '350px',
-    maxHeight: '300px',
-    overflowY: 'auto',
-    fontFamily: 'Arial, sans-serif',
-    fontSize: '14px'
-  });
+  // Positionnement dynamique conservé via styles directs
+  popup.style.zIndex = '10001';
 
   // Positionner le popup près de l'ancre
   const anchorRect = anchor.getBoundingClientRect();
@@ -962,60 +1099,48 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
   if (credentials.length === 0) {
     const noCredsDiv = document.createElement('div');
     noCredsDiv.textContent = 'Aucun identifiant trouvé pour ce site';
-    noCredsDiv.style.padding = '12px';
-    noCredsDiv.style.color = '#666';
+    noCredsDiv.className = 'skap-credential-item';
     noCredsDiv.style.textAlign = 'center';
     popup.appendChild(noCredsDiv);
   } else {
     // En-tête
     const header = document.createElement('div');
     header.textContent = 'Identifiants disponibles';
-    header.style.padding = '8px 12px';
-    header.style.borderBottom = '1px solid #eee';
-    header.style.fontWeight = 'bold';
-    header.style.backgroundColor = '#f8f9fa';
+    header.className = 'skap-credential-header';
     popup.appendChild(header);
 
     // Liste des identifiants
-    credentials.forEach((cred, index) => {
+    const list = document.createElement('div');
+    list.className = 'skap-credential-list';
+
+    credentials.forEach((cred) => {
       const item = document.createElement('div');
       item.className = 'skap-credential-item';
-
-      Object.assign(item.style, {
-        padding: '10px 12px',
-        cursor: 'pointer',
-        borderBottom: index < credentials.length - 1 ? '1px solid #eee' : 'none',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      });
+      item.setAttribute('role', 'option');
+      item.tabIndex = -1;
 
       // Favicon
       const favicon = document.createElement('img');
       favicon.src = cred.favicon || getFaviconUrl(cred.url || '');
-      favicon.style.width = '16px';
-      favicon.style.height = '16px';
-      favicon.style.flexShrink = '0';
+      favicon.className = 'favicon';
       favicon.onerror = () => {
         favicon.style.display = 'none';
       };
 
       // Informations de l'identifiant
       const info = document.createElement('div');
-      info.style.flex = '1';
-      info.style.overflow = 'hidden';
+      info.className = 'info';
 
       const username = document.createElement('div');
       username.textContent = cred.username;
-      username.style.fontWeight = '500';
+      username.className = 'username';
       username.style.whiteSpace = 'nowrap';
       username.style.overflow = 'hidden';
       username.style.textOverflow = 'ellipsis';
 
       const description = document.createElement('div');
       description.textContent = cred.description || cred.url;
-      description.style.fontSize = '12px';
-      description.style.color = '#666';
+      description.className = 'description';
       description.style.whiteSpace = 'nowrap';
       description.style.overflow = 'hidden';
       description.style.textOverflow = 'ellipsis';
@@ -1026,24 +1151,51 @@ function showCredentialPopup(anchor: HTMLElement, credentials: Credential[], tar
       item.appendChild(favicon);
       item.appendChild(info);
 
-      // Événements de survol
-      item.addEventListener('mouseenter', () => {
-        item.style.backgroundColor = '#f0f0f0';
-      });
-
-      item.addEventListener('mouseleave', () => {
-        item.style.backgroundColor = 'transparent';
-      });
-
       // Événement de clic
       item.addEventListener('click', () => {
         fillCredentialIntoForm(cred, targetField);
         popup.remove();
         activePopup = null;
       });
-
-      popup.appendChild(item);
+      list.appendChild(item);
     });
+
+    popup.appendChild(list);
+
+    // Navigation clavier (accessibilité)
+    const items = Array.from(list.querySelectorAll('.skap-credential-item')) as HTMLElement[];
+    let focusedIndex = 0;
+    const focusItem = (index: number) => {
+      if (items.length === 0) return;
+      focusedIndex = Math.max(0, Math.min(items.length - 1, index));
+      items.forEach(el => el.setAttribute('tabindex', '-1'));
+      const el = items[focusedIndex];
+      el.setAttribute('tabindex', '0');
+      el.focus();
+    };
+    popup.addEventListener('keydown', (e) => {
+      if (items.length === 0) return;
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          focusItem(focusedIndex + 1);
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          focusItem(focusedIndex - 1);
+          break;
+        case 'Enter':
+          e.preventDefault();
+          items[focusedIndex].click();
+          break;
+        case 'Escape':
+          e.preventDefault();
+          popup.remove();
+          activePopup = null;
+          break;
+      }
+    });
+    setTimeout(() => focusItem(0), 0);
   }
 
   // Ajouter le popup au document
@@ -1163,76 +1315,63 @@ function fillCredentialIntoForm(credential: Credential, targetField: HTMLInputEl
  */
 function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, credentials: Credential[]): void {
   // Fermer toute mini-barre existante
-  const existingMiniBar = document.querySelector('.skap-otp-minibar');
+  const existingMiniBar = document.querySelector('.skap-otp-mini-bar');
   if (existingMiniBar) {
     existingMiniBar.remove();
   }
 
   // Créer la mini-barre
   const miniBar = document.createElement('div');
-  miniBar.className = 'skap-otp-minibar';
+  ensureDesignSystemStyles();
+  miniBar.className = 'skap-otp-mini-bar skapauto-theme';
 
-  // Styles de la mini-barre
-  Object.assign(miniBar.style, {
-    position: 'absolute',
-    backgroundColor: '#2d3748',
-    color: 'white',
-    border: '1px solid #4a5568',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    fontSize: '12px',
-    fontFamily: 'Arial, sans-serif',
-    zIndex: '10002',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-    minWidth: '200px'
-  });
+  // Positionnement dynamique conservé via styles directs
+  miniBar.style.zIndex = '10002';
+  miniBar.style.position = 'absolute';
 
   // Positionner la mini-barre près du champ
   const fieldRect = targetField.getBoundingClientRect();
   miniBar.style.top = (fieldRect.bottom + window.scrollY + 5) + 'px';
   miniBar.style.left = (fieldRect.left + window.scrollX) + 'px';
 
+  // Créer l'en-tête avec icône et texte
+  const header = document.createElement('div');
+  header.className = 'otp-header';
+
   // Icône OTP
   const otpIcon = document.createElement('span');
   otpIcon.textContent = '🔐';
-  otpIcon.style.fontSize = '14px';
+  otpIcon.className = 'otp-icon';
 
   // Texte informatif
   const infoText = document.createElement('span');
-  infoText.textContent = 'Codes OTP disponibles:';
-  infoText.style.flex = '1';
+  infoText.textContent = 'Codes OTP disponibles';
+  infoText.className = 'info-text';
 
-  miniBar.appendChild(otpIcon);
-  miniBar.appendChild(infoText);
+  header.appendChild(otpIcon);
+  header.appendChild(infoText);
+  miniBar.appendChild(header);
+
+  // Conteneur pour les boutons
+  const buttonsContainer = document.createElement('div');
+  buttonsContainer.className = 'otp-buttons';
 
   // Boutons pour chaque identifiant avec OTP
   credentials.forEach((cred, index) => {
     if (cred.otp) {
       const otpButton = document.createElement('button');
-      otpButton.textContent = cred.username.substring(0, 8) + (cred.username.length > 8 ? '...' : '');
+      
+      // Créer la structure du bouton avec nom d'utilisateur et service
+      const usernameSpan = document.createElement('span');
+      usernameSpan.className = 'otp-username';
+      usernameSpan.textContent = cred.username;
+      
+      const serviceSpan = document.createElement('span');
+      serviceSpan.className = 'otp-service';
+      serviceSpan.textContent = cred.service || cred.url || 'Service inconnu';
 
-      Object.assign(otpButton.style, {
-        backgroundColor: '#4299e1',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        padding: '4px 8px',
-        fontSize: '11px',
-        cursor: 'pointer',
-        marginLeft: '4px'
-      });
-
-      // Événements de survol
-      otpButton.addEventListener('mouseenter', () => {
-        otpButton.style.backgroundColor = '#3182ce';
-      });
-
-      otpButton.addEventListener('mouseleave', () => {
-        otpButton.style.backgroundColor = '#4299e1';
-      });
+      otpButton.appendChild(usernameSpan);
+      otpButton.appendChild(serviceSpan);
 
       // Événement de clic pour générer et remplir l'OTP
       otpButton.addEventListener('click', async () => {
@@ -1257,37 +1396,11 @@ function showOTPMiniBar(targetField: HTMLInputElement | HTMLTextAreaElement, cre
         }
       });
 
-      miniBar.appendChild(otpButton);
+      buttonsContainer.appendChild(otpButton);
     }
   });
 
-  // Bouton de fermeture
-  const closeButton = document.createElement('button');
-  closeButton.textContent = '×';
-
-  Object.assign(closeButton.style, {
-    backgroundColor: 'transparent',
-    color: '#a0aec0',
-    border: 'none',
-    fontSize: '16px',
-    cursor: 'pointer',
-    padding: '0 4px',
-    marginLeft: '8px'
-  });
-
-  closeButton.addEventListener('click', () => {
-    miniBar.remove();
-  });
-
-  closeButton.addEventListener('mouseenter', () => {
-    closeButton.style.color = 'white';
-  });
-
-  closeButton.addEventListener('mouseleave', () => {
-    closeButton.style.color = '#a0aec0';
-  });
-
-  miniBar.appendChild(closeButton);
+  miniBar.appendChild(buttonsContainer);
 
   // Ajouter la mini-barre au document
   document.body.appendChild(miniBar);
@@ -1335,6 +1448,21 @@ function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
   const placeholder = field.placeholder.toLowerCase();
   const autocomplete = field.getAttribute('autocomplete')?.toLowerCase() || '';
   const className = field.className.toLowerCase();
+  const ariaLabel = field.getAttribute('aria-label')?.toLowerCase() || '';
+  const ariaLabelledBy = field.getAttribute('aria-labelledby')?.toLowerCase() || '';
+  let labelledText = '';
+  if (ariaLabelledBy) {
+    const labels = ariaLabelledBy.split(/\s+/)
+      .map(id => document.getElementById(id)?.textContent?.toLowerCase() || '')
+      .filter(Boolean);
+    labelledText = labels.join(' ');
+  }
+  const dataTestId = field.getAttribute('data-testid')?.toLowerCase() || '';
+  const dataTestIdAlt = field.getAttribute('data-test-id')?.toLowerCase() || '';
+  const dataTest = field.getAttribute('data-test')?.toLowerCase() || '';
+  const inputMode = field.getAttribute('inputmode')?.toLowerCase() || '';
+  const typeAttr = (field.getAttribute('type') || '').toLowerCase();
+  const maxLength = (field as HTMLInputElement).maxLength;
   const config = siteConfig.whiteList.fields;
 
   // Vérifier les règles spécifiques au site
@@ -1387,12 +1515,28 @@ function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
     'authenticator'
   ];
 
+  // Aria/label terms commonly used for OTP/TOTP fields
+  const otpAriaTerms = [
+    'otp', 'totp', 'one-time', 'authenticator', 'authentication code', 'verification code',
+    '2fa', 'two-factor', 'mfa', 'security code', 'code de vérification'
+  ];
+
+  // Heuristics for numeric OTP fields
+  const looksNumericOtp = (
+    (maxLength >= 4 && maxLength <= 8) || /\b(4|6|8)\b/.test(placeholder)
+  ) && (inputMode === 'numeric' || typeAttr === 'tel');
+
+  const testIdText = `${dataTestId} ${dataTestIdAlt} ${dataTest}`;
+
   return (
     config.otpNames.some(n => name.includes(n)) ||
     config.otpIds.some(i => id.includes(i)) ||
     otpAutocompleteValues.includes(autocomplete) ||
     otpPlaceholderTerms.some(term => placeholder.includes(term)) ||
-    config.otpNames.some(n => className.includes(n))
+    config.otpNames.some(n => className.includes(n)) ||
+    otpAriaTerms.some(term => ariaLabel.includes(term) || labelledText.includes(term)) ||
+    /(otp|totp|one[- ]?time|code)/.test(testIdText) ||
+    looksNumericOtp
   );
 }
 
@@ -1401,7 +1545,6 @@ function isOTPField(field: HTMLInputElement | HTMLTextAreaElement): boolean {
  */
 function getAllInputElementsIncludingShadowDOM(root: Document | ShadowRoot | Element = document): HTMLInputElement[] {
   const inputs: HTMLInputElement[] = [];
-  console.log('🔍 getAllInputElementsIncludingShadowDOM called with root:', root);
   
   // Get inputs from current root
   const currentInputs = root.querySelectorAll<HTMLInputElement>(
@@ -1409,7 +1552,6 @@ function getAllInputElementsIncludingShadowDOM(root: Document | ShadowRoot | Ele
   );
   
   inputs.push(...Array.from(currentInputs));
-  console.log(`📝 Found ${currentInputs.length} inputs in current root:`, root);
   
   // Traverse Shadow DOM
   const elementsWithShadow = root.querySelectorAll('*');
@@ -1417,15 +1559,12 @@ function getAllInputElementsIncludingShadowDOM(root: Document | ShadowRoot | Ele
   elementsWithShadow.forEach(element => {
     if (element.shadowRoot) {
       shadowRootsFound++;
-      console.log('🌟 Found Shadow DOM in element:', element);
       // Recursively search in Shadow DOM
       const shadowInputs = getAllInputElementsIncludingShadowDOM(element.shadowRoot);
       inputs.push(...shadowInputs);
     }
   });
   
-  console.log(`🌟 Found ${shadowRootsFound} Shadow DOM roots in current level`);
-  console.log(`📊 Total inputs found so far: ${inputs.length}`);
   
   return inputs;
 }
@@ -1497,10 +1636,7 @@ function detectAutofillFields(): AutofillField[] {
       patterns.otp.test(name) ||
       patterns.otp.test(id);
 
-    console.log(name);
-    console.log(className);
-    console.log(id);
-    console.log(hasStrongIndicators);
+
 
     if (autocomplete === "off" && !hasStrongIndicators) {
       return;
@@ -2981,17 +3117,20 @@ function setupFormSubmissionDetection(): void {
         : fields.some(f => f.type === "email") ? fields.find(f => f.type === "email")?.element.value : '';
 
       if (passwordValue && usernameValue) {
-        // Vérifier si ces identifiants existent déjà
+        // Vérifier si des identifiants existent déjà pour cet utilisateur sur ce site
         const existingCredentials = await getMatchingCredentials();
-        const credentialExists = existingCredentials.some(cred =>
-          cred.username === usernameValue && cred.password === passwordValue
-        );
+        const existingByUser = existingCredentials.find(cred => cred.username === usernameValue);
 
-        // Si les identifiants n'existent pas encore, proposer de les enregistrer
-        if (!credentialExists) {
-          // Attendre un peu pour laisser le formulaire se soumettre
+        // Si l'identifiant existe avec un mot de passe différent, proposer une mise à jour
+        if (existingByUser && existingByUser.password !== passwordValue) {
           setTimeout(() => {
-            showSaveCredentialsModal(usernameValue, passwordValue);
+            showSaveCredentialsModal(usernameValue, passwordValue, 'update', existingByUser);
+          }, 500);
+        }
+        // Si aucun identifiant pour cet utilisateur, proposer l'enregistrement
+        else if (!existingByUser) {
+          setTimeout(() => {
+            showSaveCredentialsModal(usernameValue, passwordValue, 'save');
           }, 500);
         }
       }
@@ -3001,7 +3140,6 @@ function setupFormSubmissionDetection(): void {
   // Observer les clics sur les boutons de connexion
   document.addEventListener('click', async (event) => {
     const target = event.target as HTMLElement;
-    console.log(target.tagName);
     if (target.tagName === 'BUTTON' ||
       (target.tagName === 'INPUT' && (target.getAttribute('type') === 'submit' || target.getAttribute('type') === 'button')) || (target.tagName === 'BUTTON' && target.getAttribute('type') === 'submit')) {
 
@@ -3015,17 +3153,17 @@ function setupFormSubmissionDetection(): void {
           : fields.some(f => f.type === "email") ? fields.find(f => f.type === "email")?.element.value : '';
 
         if (passwordValue && usernameValue) {
-          // Vérifier si ces identifiants existent déjà
+          // Vérifier si des identifiants existent déjà pour cet utilisateur sur ce site
           const existingCredentials = await getMatchingCredentials();
-          const credentialExists = existingCredentials.some(cred =>
-            cred.username === usernameValue && cred.password === passwordValue
-          );
+          const existingByUser = existingCredentials.find(cred => cred.username === usernameValue);
 
-          // Si les identifiants n'existent pas encore, proposer de les enregistrer
-          if (!credentialExists) {
-            // Attendre un peu pour laisser le formulaire se soumettre
+          if (existingByUser && existingByUser.password !== passwordValue) {
             setTimeout(() => {
-              showSaveCredentialsModal(usernameValue, passwordValue);
+              showSaveCredentialsModal(usernameValue, passwordValue, 'update', existingByUser);
+            }, 500);
+          } else if (!existingByUser) {
+            setTimeout(() => {
+              showSaveCredentialsModal(usernameValue, passwordValue, 'save');
             }, 500);
           }
         }
@@ -3039,7 +3177,7 @@ function setupFormSubmissionDetection(): void {
  * @param username Nom d'utilisateur
  * @param password Mot de passe
  */
-function showSaveCredentialsModal(username: string, password: string): void {
+function showSaveCredentialsModal(username: string, password: string, mode: 'save' | 'update' = 'save', existing?: Credential): void {
   // Supprimer toute modal existante
   const existingModal = document.getElementById('skapauto-save-credentials-modal');
   if (existingModal) {
@@ -3063,7 +3201,7 @@ function showSaveCredentialsModal(username: string, password: string): void {
 
   // Ajouter un titre
   const title = document.createElement('div');
-  title.textContent = 'Enregistrer les identifiants';
+  title.textContent = mode === 'update' ? 'Mettre à jour les identifiants' : 'Enregistrer les identifiants';
   title.style.fontFamily = "'Raleway', sans-serif";
   title.style.fontWeight = 'bold';
   title.style.marginBottom = '10px';
@@ -3095,6 +3233,15 @@ function showSaveCredentialsModal(username: string, password: string): void {
   serviceSpan.style.fontSize = '0.9em';
   info.appendChild(serviceSpan);
 
+  if (mode === 'update' && existing) {
+    const note = document.createElement('div');
+    note.textContent = 'Un identifiant existe déjà pour cet utilisateur sur ce site. Le mot de passe semble différent.';
+    note.style.color = '#1d1b21';
+    note.style.fontSize = '0.9em';
+    note.style.marginTop = '8px';
+    info.appendChild(note);
+  }
+
   modal.appendChild(info);
 
   // Conteneur pour les boutons
@@ -3102,9 +3249,9 @@ function showSaveCredentialsModal(username: string, password: string): void {
   buttonContainer.style.display = 'flex';
   buttonContainer.style.justifyContent = 'space-between';
 
-  // Bouton Enregistrer
+  // Bouton Enregistrer / Mettre à jour
   const saveButton = document.createElement('div');
-  saveButton.textContent = 'Enregistrer';
+  saveButton.textContent = mode === 'update' ? 'Mettre à jour' : 'Enregistrer';
   saveButton.style.flex = '1';
   saveButton.style.textAlign = 'center';
   saveButton.style.padding = '8px';
@@ -3125,7 +3272,7 @@ function showSaveCredentialsModal(username: string, password: string): void {
   });
 
   saveButton.addEventListener('click', () => {
-    // Créer un nouvel identifiant
+    // Créer un identifiant (nouveau ou mis à jour)
     const newCredential: Credential = {
       username: username,
       password: password,
@@ -3134,7 +3281,7 @@ function showSaveCredentialsModal(username: string, password: string): void {
       favicon: getFaviconUrl(window.location.hostname)
     };
 
-    // Envoyer au background script pour enregistrement
+    // Envoyer au background script pour enregistrement (pas d'API update côté serveur)
     browser.runtime.sendMessage({
       action: 'saveNewCredential',
       credential: newCredential
@@ -3144,10 +3291,10 @@ function showSaveCredentialsModal(username: string, password: string): void {
         modal.style.opacity = '0';
         setTimeout(() => {
           modal.remove();
-          showNotification('Identifiants enregistrés avec succès!', 'success');
+          showNotification(mode === 'update' ? 'Identifiants mis à jour avec succès!' : 'Identifiants enregistrés avec succès!', 'success');
         }, 300);
       } else {
-        showNotification('Erreur lors de l\'enregistrement des identifiants.', 'error');
+        showNotification(mode === 'update' ? 'Erreur lors de la mise à jour des identifiants.' : 'Erreur lors de l\'enregistrement des identifiants.', 'error');
       }
     });
   });
